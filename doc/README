@@ -1,0 +1,88 @@
+0export - create self-installing bundles for distribution on CD, etc
+
+Copyright Thomas Leonard, 2008
+
+
+INTRODUCTION
+
+Zero Install is a decentralised installation system. Meta-data about each
+package is published in a "feed" file.
+
+Normally, a program is run by passing its name (a URI) to the 0launch
+command. This downloads the appropriate feeds, choose a set of
+implementations (a version of the program, along with any libraries it
+needs) and downloads them too. For details, see:
+
+  http://0install.net
+
+However, it is sometimes useful to bundle a program and its libraries
+together on a CD (for example) so that it can be used on machines without a
+network connection, or where the network is very slow. It is also useful for
+archival purposes, in case the original web-sites supplying required
+libraries become unavailable.
+
+0export takes the URI of a program and creates a "setup.sh" file; a
+self-extracting archive containing everything needed to run the program.
+This file can be executed on a machine without a network connection to
+install or run the program.
+
+Unlike the bundles created by the related zero2bundle program, programs
+installed using setup.sh are added to the Zero Install cache and are
+therefore still shared between users, and will get updates over the web
+where possible.
+
+
+INSTRUCTIONS
+
+Create a short-cut to 0export:
+
+  $ 0alias 0export http://0install.net/2008/interfaces/0export.xml
+
+To create an installer for Edit:
+
+  $ 0export http://rox.sourceforge.net/2005/interfaces/Edit
+
+To test the installer:
+
+  $ sh setup-edit.sh
+
+The setup-edit.sh file can be written to CD, archived, etc.
+
+
+FORMAT
+
+The bulk of the setup.sh file is an archive containing:
+
+- All feeds needed to run the program.
+- All GPGs keys signing the feeds.
+- All selected implementations (versions).
+- A copy of Zero Install, in case the target system doesn't have it.
+- An installation script.
+
+To make the archive self-extracting, a short shell script is prepended to
+the archive which unpacks it to a temporary directory and then runs the
+installer.
+
+
+CONDITIONS
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 3 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
+
+
+BUG REPORTS
+
+Please report any bugs to the mailing list:
+
+	http://0install.net/support.html
