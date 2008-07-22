@@ -4,7 +4,7 @@
 
 from optparse import OptionParser
 import os, sys, tempfile, shutil
-from logging import info, debug
+from logging import warn, info, debug
 
 zeroinstall_dir = os.environ.get('0IMPORT_ZEROINSTALL', None)
 if zeroinstall_dir:
@@ -41,35 +41,20 @@ if len(args) != 1:
 	parser.print_help()
 	sys.exit(1)
 
-from zeroinstall.zerostore import manifest
-from zeroinstall.injector import policy, handler, model, iface_cache
+from zeroinstall.injector import policy, handler, model
 from zeroinstall import SafeException
+import utils
 
 uri = model.canonical_iface_uri(args[0])
 
-print "Finding versions of %s..." % uri
-
-class NoLocalVersions:
-	def meets_restriction(self, impl):
-		if isinstance(impl, model.ZeroInstallImplementation):
-			i = impl.id
-			return not (i.startswith('/') or i.startswith('.'))
-		# Should package impls be OK?
-		return False
-
-no_local = NoLocalVersions()
-
-class NoLocalRestrictions(dict):
-	# This restriction applies to all interfaces, so ignore key
-	def get(self, key, default):
-		return [no_local]
+print "Choosing versions for %s..." % uri
 
 try:
 	h = handler.Handler()
 	p = policy.Policy(uri, h)
 
 	# Don't let us choose local devel versions
-	p.solver.extra_restrictions = NoLocalRestrictions()
+	p.solver.extra_restrictions = utils.NoLocalRestrictions()
 
 	solved = p.solve_with_downloads()
 	h.wait_for_blocker(solved)
@@ -78,24 +63,24 @@ try:
 		raise SafeException("Failed to select a set of versions!")
 	
 	for iface, impl in p.solver.selections.items():
-		print "  %s : %s" % (iface.get_name(), impl.get_version())
+		print "  %-10s : %s" % (iface.get_name(), impl.get_version())
 	
 	downloads = p.download_uncached_implementations()
 	if downloads:
 		print "Downloading implementations..."
 		h.wait_for_blocker(downloads)
 
+	keys_used = set()
+
 	tmp = tempfile.mkdtemp(prefix = '0export-')
 	try:
-		implementations = os.path.join(tmp, 'implementations')
-		for impl in p.solver.selections.values():
-			src = p.get_implementation_path(impl)
-			dst = os.path.join(implementations, impl.id)
-			shutil.copytree(src, dst)
-			manifest.verify(dst, impl.id)
-			for root, dirs, files in os.walk(dst):
-				os.chmod(root, 0755)
-			os.unlink(os.path.join(dst, '.manifest'))
+		utils.export_feeds(tmp, p.solver.feeds_used, keys_used)
+		utils.export_impls(tmp, p, p.solver.selections.values())
+
+		keys_dir = os.path.join(tmp, 'keys')
+		os.mkdir(keys_dir)
+		for key in keys_used:
+			utils.export_key(key, keys_dir)
 	finally:
 		shutil.rmtree(tmp)
 except SafeException, ex:
