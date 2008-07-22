@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+# Copyright (C) 2008, Thomas Leonard
+# See the README file for details, or visit http://0install.net.
+
+from optparse import OptionParser
+import os, sys, tempfile, shutil
+from logging import info, debug
+
+zeroinstall_dir = os.environ.get('0IMPORT_ZEROINSTALL', None)
+if zeroinstall_dir:
+	sys.path.insert(1, zeroinstall_dir)
+
+version = '0.1'
+
+parser = OptionParser(usage="usage: %prog URI")
+
+parser.add_option("-v", "--verbose", help="more verbose output", action='count')
+parser.add_option("-V", "--version", help="display version information", action='store_true')
+
+(options, args) = parser.parse_args()
+
+if options.version:
+	print "0export (zero-install) " + version
+	print "Copyright (C) 2008 Thomas Leonard"
+	print "This program comes with ABSOLUTELY NO WARRANTY,"
+	print "to the extent permitted by law."
+	print "You may redistribute copies of this program"
+	print "under the terms of the GNU General Public License."
+	print "For more information about these matters, see the file named COPYING."
+	sys.exit(0)
+
+if options.verbose:
+	import logging
+	logger = logging.getLogger()
+	if options.verbose == 1:
+		logger.setLevel(logging.INFO)
+	else:
+		logger.setLevel(logging.DEBUG)
+
+if len(args) != 1:
+	parser.print_help()
+	sys.exit(1)
+
+from zeroinstall.zerostore import manifest
+from zeroinstall.injector import policy, handler, model, iface_cache
+from zeroinstall import SafeException
+
+uri = model.canonical_iface_uri(args[0])
+
+print "Finding versions of %s..." % uri
+
+class NoLocalVersions:
+	def meets_restriction(self, impl):
+		if isinstance(impl, model.ZeroInstallImplementation):
+			i = impl.id
+			return not (i.startswith('/') or i.startswith('.'))
+		# Should package impls be OK?
+		return False
+
+no_local = NoLocalVersions()
+
+class NoLocalRestrictions(dict):
+	# This restriction applies to all interfaces, so ignore key
+	def get(self, key, default):
+		return [no_local]
+
+try:
+	h = handler.Handler()
+	p = policy.Policy(uri, h)
+
+	# Don't let us choose local devel versions
+	p.solver.extra_restrictions = NoLocalRestrictions()
+
+	solved = p.solve_with_downloads()
+	h.wait_for_blocker(solved)
+
+	if not p.ready:
+		raise SafeException("Failed to select a set of versions!")
+	
+	for iface, impl in p.solver.selections.items():
+		print "  %s : %s" % (iface.get_name(), impl.get_version())
+	
+	downloads = p.download_uncached_implementations()
+	if downloads:
+		print "Downloading implementations..."
+		h.wait_for_blocker(downloads)
+
+	tmp = tempfile.mkdtemp(prefix = '0export-')
+	try:
+		implementations = os.path.join(tmp, 'implementations')
+		for impl in p.solver.selections.values():
+			src = p.get_implementation_path(impl)
+			dst = os.path.join(implementations, impl.id)
+			shutil.copytree(src, dst)
+			manifest.verify(dst, impl.id)
+			for root, dirs, files in os.walk(dst):
+				os.chmod(root, 0755)
+			os.unlink(os.path.join(dst, '.manifest'))
+	finally:
+		shutil.rmtree(tmp)
+except SafeException, ex:
+	print >>sys.stderr, str(ex)
+	sys.exit(1)
