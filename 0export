@@ -3,7 +3,7 @@
 # See the README file for details, or visit http://0install.net.
 
 from optparse import OptionParser
-import os, sys, tempfile, shutil
+import os, sys, tempfile, shutil, tarfile
 from logging import warn, info, debug
 
 zeroinstall_dir = os.environ.get('0IMPORT_ZEROINSTALL', None)
@@ -12,7 +12,32 @@ if zeroinstall_dir:
 
 version = '0.1'
 
-parser = OptionParser(usage="usage: %prog URI")
+extract_header = """#!/bin/sh
+# 0export %s
+archive_offset=00000
+archive_format=application/x-bzip-compressed-tar
+exec python - "$0" "$archive_offset" << EOF
+import tempfile, tarfile, sys, shutil, os
+tmp = tempfile.mkdtemp(prefix = '0export-')
+try:
+	self_stream = file(sys.argv[1], 'rb')
+	self_stream.seek(int(sys.argv[2]))
+	ts = tarfile.open(sys.argv[1], 'r|bz2', self_stream)
+	ts.extractall(tmp)
+	ts.close()
+	self_stream.close()
+	sys.path.insert(0, tmp)
+	sys.argv[0] = os.path.join(tmp, 'install.py')
+	import install
+finally:
+	shutil.rmtree(tmp)
+EOF
+exit 1
+""" % version
+extract_header = extract_header.replace('00000', "%05d" % len(extract_header))
+
+parser = OptionParser(usage="usage: %prog setup.sh URI\n"
+			"Create setup.sh self-extracting installer for program URI")
 
 parser.add_option("-v", "--verbose", help="more verbose output", action='count')
 parser.add_option("-V", "--version", help="display version information", action='store_true')
@@ -37,7 +62,7 @@ if options.verbose:
 	else:
 		logger.setLevel(logging.DEBUG)
 
-if len(args) != 1:
+if len(args) != 2:
 	parser.print_help()
 	sys.exit(1)
 
@@ -45,7 +70,8 @@ from zeroinstall.injector import policy, handler, model
 from zeroinstall import SafeException
 import utils
 
-uri = model.canonical_iface_uri(args[0])
+setup_file = args[0]
+uri = model.canonical_iface_uri(args[1])
 
 print "Choosing versions for %s..." % uri
 
@@ -81,6 +107,18 @@ try:
 		os.mkdir(keys_dir)
 		for key in keys_used:
 			utils.export_key(key, keys_dir)
+
+		mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
+		shutil.copyfile(os.path.join(mydir, 'install.py'),
+				os.path.join(tmp, 'install.py'))
+
+		setup_stream = file(setup_file, 'w')
+		setup_stream.write(extract_header)
+		ts = tarfile.open(setup_file, 'w|bz2', setup_stream)
+		ts.add(tmp, '.')
+		ts.close()
+		setup_stream.close()
+		os.chmod(setup_file, (os.stat(setup_file).st_mode & 0777) | 0111)
 	finally:
 		shutil.rmtree(tmp)
 except SafeException, ex:
