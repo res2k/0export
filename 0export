@@ -112,6 +112,10 @@ try:
 		shutil.copyfile(os.path.join(mydir, 'install.py'),
 				os.path.join(tmp, 'install.py'))
 
+		toplevels = file(os.path.join(tmp, 'toplevel_uris'), 'w')
+		toplevels.write(uri)
+		toplevels.close()
+
 		setup_stream = file(setup_file, 'w')
 		setup_stream.write(extract_header)
 		ts = tarfile.open(setup_file, 'w|bz2', setup_stream)

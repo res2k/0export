@@ -57,8 +57,8 @@ def export_feeds(export_dir, feeds, keys_used):
 						  'interfaces',
 						  model.escape(feed))
 		if cached:
-			feed_dst = os.path.join(export_dir, get_feed_path(feed))
-			feed_dir = os.path.dirname(feed_dst)
+			feed_dir = os.path.join(export_dir, get_feed_path(feed))
+			feed_dst = os.path.join(feed_dir, 'latest.xml')
 			if not os.path.isdir(feed_dir):
 				os.makedirs(feed_dir)
 			shutil.copyfile(cached, feed_dst)
