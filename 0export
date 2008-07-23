@@ -8,7 +8,7 @@ from logging import warn, info, debug
 
 ZEROINSTALL_URI = "http://0install.net/2007/interfaces/ZeroInstall.xml"
 
-zeroinstall_dir = os.environ.get('0IMPORT_ZEROINSTALL', None)
+zeroinstall_dir = os.environ.get('0EXPORT_ZEROINSTALL', None)
 if zeroinstall_dir:
 	sys.path.insert(1, zeroinstall_dir)
 
