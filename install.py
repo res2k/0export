@@ -9,11 +9,18 @@
 import os, sys, subprocess
 
 mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
-sys.path.insert(0, os.path.join(mydir, 'zeroinstall'))
+zidir = os.path.join(mydir, 'zeroinstall')
+sys.path.insert(0, zidir)
 feeds_dir = os.path.join(mydir, 'feeds')
+pypath = os.environ.get('PYTHONPATH')
+if pypath:
+	pypath = ':' + pypath
+else:
+	pypath = ''
+os.environ['PYTHONPATH'] = zidir + pypath
 
-from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler
-from zeroinstall import SafeException
+from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler, model
+from zeroinstall import SafeException, zerostore
 
 import logging
 logger = logging.getLogger()
@@ -71,21 +78,32 @@ for root, dirs, files in os.walk(os.path.join(mydir, 'feeds')):
 
 # Step 3. Solve to find out which implementations we actually need
 
+setup_store = zerostore.Store(os.path.join(mydir, 'implementations'))
+stores = iface_cache.iface_cache.stores
+
 h = handler.Handler()
 for uri in file(os.path.join(mydir, 'toplevel_uris')):
+	# This is so the solver treats versions in the setup archive as 'cached',
+	# meaning that it will prefer using them to doing a download
+	stores.stores.append(setup_store)
+
 	# Shouldn't need to download anything, but we might not have all feeds
 	uri = uri.strip()
 	p = policy.Policy(uri, h)
+	p.network_use = model.network_minimal
 	download_feeds = p.solve_with_downloads()
 	h.wait_for_blocker(download_feeds)
 	assert p.ready
-	stores = iface_cache.iface_cache.stores
+
+	# Add anything chosen from the setup store to the main store
+	stores.stores.remove(setup_store)
 	for iface, impl in p.get_uncached_implementations():
 		print "Need to import", impl
 		impl_src = os.path.join(mydir, 'implementations', impl.id)
+
 		if os.path.isdir(impl_src):
 			stores.add_dir_to_cache(impl.id, impl_src)
 		else:
 			print >>sys.stderr, "Required impl %s not present" % impl
 	print "Running program..."
-	check_call([os.path.join(mydir, 'zeroinstall', '0launch'), uri])
+	check_call([os.path.join(mydir, 'zeroinstall', '0launch'), '--offline', uri])

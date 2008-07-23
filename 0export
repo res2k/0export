@@ -28,11 +28,12 @@ try:
 
 	umask = os.umask(0)
 	os.umask(umask)
-        items = []
-        for tarinfo in ts:
+	items = []
+	for tarinfo in ts:
 		tarinfo.mode = (tarinfo.mode | 0644) & ~umask
 		ts.extract(tarinfo, tmp)
-                items.append(tarinfo)
+		if tarinfo.isdir():
+			items.append(tarinfo)
 	for tarinfo in items:
 		path = os.path.join(tmp, tarinfo.name)
 		os.utime(path, (tarinfo.mtime, tarinfo.mtime))
