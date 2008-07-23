@@ -15,6 +15,10 @@ feeds_dir = os.path.join(mydir, 'feeds')
 from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler
 from zeroinstall import SafeException
 
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 if not os.path.isdir(feeds_dir):
 	print >>sys.stderr, "Directory %s not found." % feeds_dir
 	print >>sys.stderr, "This script should be run from an unpacked setup.sh archive."
@@ -83,4 +87,5 @@ for uri in file(os.path.join(mydir, 'toplevel_uris')):
 			stores.add_dir_to_cache(impl.id, impl_src)
 		else:
 			print >>sys.stderr, "Required impl %s not present" % impl
+	print "Running program..."
 	check_call([os.path.join(mydir, 'zeroinstall', '0launch'), uri])
