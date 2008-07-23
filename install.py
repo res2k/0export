@@ -7,10 +7,13 @@
 # It runs or installs the program
 
 import os, sys, subprocess
-from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler
 
 mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
+sys.path.insert(0, os.path.join(mydir, 'zeroinstall'))
 feeds_dir = os.path.join(mydir, 'feeds')
+
+from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler
+from zeroinstall import SafeException
 
 if not os.path.isdir(feeds_dir):
 	print >>sys.stderr, "Directory %s not found." % feeds_dir
@@ -21,9 +24,13 @@ if not os.path.isdir(feeds_dir):
 def check_call(*args, **kwargs):
 	exitstatus = subprocess.call(*args, **kwargs)
 	if exitstatus != 0:
-		raise SafeException("Command failed with exit code %d:\n%s" % (exitstatus, ' '.join(args)))
+		raise SafeException("Command failed with exit code %d:\n%s" % (exitstatus, ' '.join(args[0])))
 
 # Step 1. Import GPG keys
+
+# Maybe GPG has never been run before. Let it initialse, or we'll get an error code
+# from the first import... (ignore return value here)
+subprocess.call(['gpg', '--check-trustdb'])
 
 key_dir = os.path.join(mydir, 'keys')
 for key in os.listdir(key_dir):
@@ -63,6 +70,7 @@ for root, dirs, files in os.walk(os.path.join(mydir, 'feeds')):
 h = handler.Handler()
 for uri in file(os.path.join(mydir, 'toplevel_uris')):
 	# Shouldn't need to download anything, but we might not have all feeds
+	uri = uri.strip()
 	p = policy.Policy(uri, h)
 	download_feeds = p.solve_with_downloads()
 	h.wait_for_blocker(download_feeds)
@@ -75,4 +83,4 @@ for uri in file(os.path.join(mydir, 'toplevel_uris')):
 			stores.add_dir_to_cache(impl.id, impl_src)
 		else:
 			print >>sys.stderr, "Required impl %s not present" % impl
-	check_call(['0launch', uri])
+	check_call([os.path.join(mydir, 'zeroinstall', '0launch'), uri])

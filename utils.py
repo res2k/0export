@@ -2,7 +2,7 @@ import os, subprocess, shutil
 from logging import info
 
 from zeroinstall import SafeException
-from zeroinstall.injector import model, namespaces, gpg
+from zeroinstall.injector import model, namespaces, gpg, iface_cache
 from zeroinstall.support import basedir
 from zeroinstall.zerostore import manifest
 
@@ -76,15 +76,20 @@ def export_feeds(export_dir, feeds, keys_used):
 		else:
 			warn("Feed not cached: %s", feed)
 
-def export_impls(export_dir, policy, impls):
+def get_implementation_path(impl):
+	if impl.startswith('/'):
+		return impl
+	return iface_cache.iface_cache.stores.lookup(impl)
+
+def export_impls(export_dir, impls):
 	implementations = os.path.join(export_dir, 'implementations')
 	for impl in impls:
 		# Store implementation
-		src = policy.get_implementation_path(impl)
-		dst = os.path.join(implementations, impl.id)
-		shutil.copytree(src, dst)
-		manifest.verify(dst, impl.id)
+		src = get_implementation_path(impl)
+		dst = os.path.join(implementations, impl)
+		shutil.copytree(src, dst, symlinks = True)
+		manifest.verify(dst, impl)
 		for root, dirs, files in os.walk(dst):
 			os.chmod(root, 0755)
 		os.unlink(os.path.join(dst, '.manifest'))
-		info("Exported implementation %s (%s %s)", impl.id, impl.feed.get_name(), impl.get_version())
+		info("Exported implementation %s", impl)
