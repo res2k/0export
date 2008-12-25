@@ -40,7 +40,7 @@ Create a short-cut to 0export:
 
 To create an installer for Edit:
 
-  $ 0export http://rox.sourceforge.net/2005/interfaces/Edit
+  $ 0export setup-edit.sh http://rox.sourceforge.net/2005/interfaces/Edit
 
 To test the installer:
 
