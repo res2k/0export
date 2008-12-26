@@ -24,6 +24,7 @@ def get_busy_pointer():
 
 tmp = tempfile.mkdtemp(prefix = '0export-')
 try:
+	w = None
 	progress_bar = None
 	print "Extracting..."
 	try:
@@ -82,6 +83,9 @@ try:
 	sys.path.insert(0, tmp)
 	sys.argv[0] = os.path.join(tmp, 'install.py')
 	print "Running..."
+	if w:
+		w.destroy()
+		gtk.gdk.flush()
 	import install
 finally:
 	shutil.rmtree(tmp)
