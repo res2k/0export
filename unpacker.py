@@ -1,4 +1,4 @@
-import tempfile, sys, shutil, os, subprocess
+import tempfile, sys, shutil, os, subprocess, gobject, signal
 
 def get_busy_pointer():
 	# See http://mail.gnome.org/archives/gtk-list/2007-May/msg00100.html
@@ -24,30 +24,55 @@ def get_busy_pointer():
 
 tmp = tempfile.mkdtemp(prefix = '0export-')
 try:
+	progress_bar = None
 	print "Extracting..."
 	try:
 		import pygtk; pygtk.require('2.0')
 		import gtk
-		w = gtk.Window()
+		w = gtk.MessageDialog(parent=None, flags=0, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_CANCEL,
+					message_format='The software is being unpacked. Please wait...')
 		w.set_position(gtk.WIN_POS_MOUSE)
-		w.set_title('Unpacking... please wait...')
+		w.set_title('Zero Install')
 		w.set_default_size(400, 300)
 		w.show()
 		w.window.set_cursor(get_busy_pointer())
 		gtk.gdk.flush()
-		have_gui = True
+		progress_bar = gtk.ProgressBar()
+		w.vbox.add(progress_bar)
+		progress_bar.show()
+		def response(w, resp):
+			print >>sys.stderr, "Cancelled at user's request"
+			os.kill(child.pid, signal.SIGTERM)
+			child.wait()
+			sys.exit(1)
+		w.connect('response', response)
 	except Exception, ex:
 		print "GTK not available; will use console install instead (%s)" % str(ex)
-		have_gui = False
 	self_stream = file(sys.argv[1], 'rb')
-	self_stream.seek(int(sys.argv[2]))
+	archive_offset = int(sys.argv[2])
+	self_stream.seek(archive_offset)
+	archive_size = os.path.getsize(sys.argv[1]) - archive_offset
 	old_umask = os.umask(077)
 	child = subprocess.Popen('bunzip2|tar xf -', shell = True, stdin = subprocess.PIPE, cwd = tmp)
-	while True:
+	sent = 0
+	mainloop = gobject.MainLoop(gobject.main_context_default())
+
+	def pipe_ready(src, cond):
+		global sent
 		data = self_stream.read(4096)
-		if not data: break
+		if not data:
+			mainloop.quit()
+			child.stdin.close()
+			return False
+		sent += len(data)
+		if progress_bar:
+			progress_bar.set_fraction(float(sent) / archive_size)
 		child.stdin.write(data)
-	child.stdin.close()
+		return True
+	gobject.io_add_watch(child.stdin, gobject.IO_OUT | gobject.IO_HUP, pipe_ready)
+
+	mainloop.run()
+
 	child.wait()
 	if child.returncode:
 		raise Exception("Failed to unpack archive (code %d)" % child.returncode)
