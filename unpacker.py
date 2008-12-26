@@ -29,6 +29,8 @@ try:
 	try:
 		import pygtk; pygtk.require('2.0')
 		import gtk
+		if gtk.gdk.get_display() is None:
+			raise Exception("Failed to open display")
 		w = gtk.MessageDialog(parent=None, flags=0, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_CANCEL,
 					message_format='The software is being unpacked. Please wait...')
 		w.set_position(gtk.WIN_POS_MOUSE)
