@@ -37,7 +37,7 @@ def check_call(*args, **kwargs):
 	if exitstatus != 0:
 		raise SafeException("Command failed with exit code %d:\n%s" % (exitstatus, ' '.join(args[0])))
 
-def do_install(w):
+def do_install():
 	# Step 1. Import GPG keys
 
 	# Maybe GPG has never been run before. Let it initialse, or we'll get an error code
@@ -83,13 +83,13 @@ def do_install(w):
 	stores = iface_cache.iface_cache.stores
 
 	h = handler.Handler()
-	for uri in file(os.path.join(mydir, 'toplevel_uris')):
+	toplevel_uris = [uri.strip() for uri in file(os.path.join(mydir, 'toplevel_uris'))]
+	for uri in toplevel_uris:
 		# This is so the solver treats versions in the setup archive as 'cached',
 		# meaning that it will prefer using them to doing a download
 		stores.stores.append(setup_store)
 
 		# Shouldn't need to download anything, but we might not have all feeds
-		uri = uri.strip()
 		p = policy.Policy(uri, h)
 		p.network_use = model.network_minimal
 		download_feeds = p.solve_with_downloads()
@@ -106,14 +106,12 @@ def do_install(w):
 				stores.add_dir_to_cache(impl.id, impl_src)
 			else:
 				print >>sys.stderr, "Required impl %s not present" % impl
+	return toplevel_uris
 
-	if w:
-		import gtk
-		resp = w.run()
-		if resp != gtk.RESPONSE_OK:
-			raise Exception("Aborted at user's request")
-		w.destroy()
-		gtk.gdk.flush()
+def add_to_menu(uris):
+	for uri in uris:
+		check_call([os.path.join(mydir, 'zeroinstall', '0desktop'), uri])
 
+def run(uri):
 	print "Running program..."
 	check_call([os.path.join(mydir, 'zeroinstall', '0launch'), '--offline', uri])

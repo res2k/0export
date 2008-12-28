@@ -49,8 +49,22 @@ try:
 		progress_bar = gtk.ProgressBar()
 		message_vbox.add(progress_bar)
 
-		actions_vbox = gtk.VBox(False, 12)
-		actions_vbox.pack_start(gtk.Label('Ready!'), True, True, 0)
+		actions_vbox = gtk.VBox(False, 4)
+		label = gtk.Label('Actions:')
+		label.set_alignment(0, 0.5)
+		add_to_menu_option = gtk.CheckButton('Add to menu')
+		add_to_menu_option.set_active(True)
+		run_option = gtk.CheckButton('Run program')
+		run_option.set_active(True)
+		actions_vbox.pack_start(label, False, True, 0)
+		actions_vbox.pack_start(add_to_menu_option, False, True, 0)
+		actions_vbox.pack_start(run_option, False, True, 0)
+
+		def update_sensitive(option):
+			w.set_response_sensitive(gtk.RESPONSE_OK,
+				add_to_menu_option.get_active() or run_option.get_active())
+		add_to_menu_option.connect('toggled', update_sensitive)
+		run_option.connect('toggled', update_sensitive)
 
 		notebook = gtk.Notebook()
 		notebook.set_show_tabs(False)
@@ -110,17 +124,34 @@ try:
 		raise Exception("Failed to unpack archive (code %d)" % child.returncode)
 	self_stream.close()
 
+	sys.path.insert(0, tmp)
+	sys.argv[0] = os.path.join(tmp, 'install.py')
+
+	print "Installing..."
+	import install
+	toplevel_uris = install.do_install()
+
 	if w:
 		notebook.next_page()
 		w.disconnect(response_handler)
 		w.window.set_cursor(None)
 		w.set_response_sensitive(gtk.RESPONSE_OK, True)
 		ok_button.grab_focus()
+		resp = w.run()
 
-	sys.path.insert(0, tmp)
-	sys.argv[0] = os.path.join(tmp, 'install.py')
-	print "Running..."
-	import install
-	install.do_install(w)
+		w.destroy()
+		gtk.gdk.flush()
+
+		if resp != gtk.RESPONSE_OK:
+			raise Exception("Cancelled at user's request")
+
+	if w:
+		if add_to_menu_option.get_active():
+			install.add_to_menu(toplevel_uris)
+
+	if w is None or run_option.get_active():
+		print "Running..."
+		install.run(toplevel_uris[0])
+
 finally:
 	shutil.rmtree(tmp)
