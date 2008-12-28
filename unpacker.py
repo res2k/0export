@@ -32,8 +32,12 @@ try:
 		import gtk
 		if gtk.gdk.get_display() is None:
 			raise Exception("Failed to open display")
-		w = gtk.MessageDialog(parent=None, flags=0, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_CANCEL,
+		w = gtk.MessageDialog(parent=None, flags=0, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_NONE,
 					message_format='The software is being unpacked. Please wait...')
+		cancel_button = w.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+		cancel_button.unset_flags(gtk.CAN_DEFAULT)
+		ok_button = w.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
+		w.set_response_sensitive(gtk.RESPONSE_OK, False)
 		w.set_position(gtk.WIN_POS_MOUSE)
 		w.set_title('Zero Install')
 		w.set_default_size(400, 300)
@@ -48,7 +52,7 @@ try:
 			os.kill(child.pid, signal.SIGTERM)
 			child.wait()
 			sys.exit(1)
-		w.connect('response', response)
+		response_handler = w.connect('response', response)
 	except Exception, ex:
 		print "GTK not available; will use console install instead (%s)" % str(ex)
 	self_stream = file(sys.argv[1], 'rb')
@@ -75,6 +79,11 @@ try:
 	gobject.io_add_watch(child.stdin, gobject.IO_OUT | gobject.IO_HUP, pipe_ready)
 
 	mainloop.run()
+	if w:
+		w.disconnect(response_handler)
+		w.window.set_cursor(None)
+		w.set_response_sensitive(gtk.RESPONSE_OK, True)
+		ok_button.grab_focus()
 
 	child.wait()
 	if child.returncode:
@@ -83,9 +92,7 @@ try:
 	sys.path.insert(0, tmp)
 	sys.argv[0] = os.path.join(tmp, 'install.py')
 	print "Running..."
-	if w:
-		w.destroy()
-		gtk.gdk.flush()
 	import install
+	install.do_install(w)
 finally:
 	shutil.rmtree(tmp)
