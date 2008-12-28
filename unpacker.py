@@ -33,6 +33,7 @@ try:
 		if gtk.gdk.get_display() is None:
 			raise Exception("Failed to open display")
 		w = gtk.Dialog(title = "Zero Install")
+
 		w.set_resizable(False)
 		w.set_has_separator(False)
 		w.vbox.set_border_width(4)
@@ -48,8 +49,17 @@ try:
 		progress_bar = gtk.ProgressBar()
 		message_vbox.add(progress_bar)
 
+		actions_vbox = gtk.VBox(False, 12)
+		actions_vbox.pack_start(gtk.Label('Ready!'), True, True, 0)
+
+		notebook = gtk.Notebook()
+		notebook.set_show_tabs(False)
+		notebook.set_show_border(False)
+		notebook.append_page(message_vbox, None)
+		notebook.append_page(actions_vbox, None)
+
 		hbox.pack_start(image, False, False, 0)
-		hbox.pack_start(message_vbox, True, True)
+		hbox.pack_start(notebook, True, True)
 		w.vbox.pack_start(hbox, False, False, 0)
 		cancel_button = w.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
 		cancel_button.unset_flags(gtk.CAN_DEFAULT)
@@ -94,16 +104,19 @@ try:
 	gobject.io_add_watch(child.stdin, gobject.IO_OUT | gobject.IO_HUP, pipe_ready)
 
 	mainloop.run()
-	if w:
-		w.disconnect(response_handler)
-		w.window.set_cursor(None)
-		w.set_response_sensitive(gtk.RESPONSE_OK, True)
-		ok_button.grab_focus()
 
 	child.wait()
 	if child.returncode:
 		raise Exception("Failed to unpack archive (code %d)" % child.returncode)
 	self_stream.close()
+
+	if w:
+		notebook.next_page()
+		w.disconnect(response_handler)
+		w.window.set_cursor(None)
+		w.set_response_sensitive(gtk.RESPONSE_OK, True)
+		ok_button.grab_focus()
+
 	sys.path.insert(0, tmp)
 	sys.argv[0] = os.path.join(tmp, 'install.py')
 	print "Running..."
