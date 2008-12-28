@@ -32,8 +32,25 @@ try:
 		import gtk
 		if gtk.gdk.get_display() is None:
 			raise Exception("Failed to open display")
-		w = gtk.MessageDialog(parent=None, flags=0, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_NONE,
-					message_format='The software is being unpacked. Please wait...')
+		w = gtk.Dialog(title = "Zero Install")
+		w.set_resizable(False)
+		w.set_has_separator(False)
+		w.vbox.set_border_width(4)
+		hbox = gtk.HBox(False, 12)
+		hbox.set_border_width(5)
+		image = gtk.image_new_from_stock(gtk.STOCK_DIALOG_INFO, gtk.ICON_SIZE_DIALOG)
+		image.set_alignment(0.5, 0.5)
+
+		message_vbox = gtk.VBox(False, 12)
+		message_vbox.pack_start(gtk.Label('The software is being unpacked. Please wait...'), True, True)
+		message_vbox.set_border_width(12)
+
+		progress_bar = gtk.ProgressBar()
+		message_vbox.add(progress_bar)
+
+		hbox.pack_start(image, False, False, 0)
+		hbox.pack_start(message_vbox, True, True)
+		w.vbox.pack_start(hbox, False, False, 0)
 		cancel_button = w.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
 		cancel_button.unset_flags(gtk.CAN_DEFAULT)
 		ok_button = w.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
@@ -44,9 +61,7 @@ try:
 		w.show()
 		w.window.set_cursor(get_busy_pointer())
 		gtk.gdk.flush()
-		progress_bar = gtk.ProgressBar()
-		w.vbox.add(progress_bar)
-		progress_bar.show()
+		w.vbox.show_all()
 		def response(w, resp):
 			print >>sys.stderr, "Cancelled at user's request"
 			os.kill(child.pid, signal.SIGTERM)
