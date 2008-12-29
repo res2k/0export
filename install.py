@@ -6,6 +6,7 @@
 # It runs or installs the program
 
 import os, sys, subprocess
+import shutil
 
 mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
 zidir = os.path.join(mydir, 'zeroinstall')
@@ -19,6 +20,7 @@ else:
 os.environ['PYTHONPATH'] = zidir + pypath
 
 from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler, model, namespaces
+from zeroinstall.support import basedir
 from zeroinstall import SafeException, zerostore
 from zeroinstall.gtkui import xdgutils
 
@@ -52,6 +54,7 @@ def do_install():
 	for root, dirs, files in os.walk(os.path.join(mydir, 'feeds')):
 		if 'latest.xml' in files:
 			feed_path = os.path.join(root, 'latest.xml')
+			icon_path = os.path.join(root, 'icon.png')
 
 			# Get URI
 			feed_stream = file(feed_path)
@@ -76,6 +79,12 @@ def do_install():
 			if feed_stream != stream:
 				feed_stream.close()
 			stream.close()
+
+			if icon_path:
+				icons_cache = basedir.save_cache_path(namespaces.config_site, 'interface_icons')
+				icon_file = os.path.join(icons_cache, model.escape(uri))
+				if not os.path.exists(icon_file):
+					shutil.copyfile(icon_path, icon_file)
 
 	# Step 3. Solve to find out which implementations we actually need
 
