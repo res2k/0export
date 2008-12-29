@@ -94,12 +94,26 @@ try:
 			print "Downloading implementations..."
 			h.wait_for_blocker(downloads)
 
+		iface_cache = p.solver.iface_cache
+
 		if uri == ZEROINSTALL_URI:
-			zeroinstall_impl = p.solver.selections[p.solver.iface_cache.get_interface(uri)].id
+			zeroinstall_impl = p.solver.selections[iface_cache.get_interface(uri)].id
+
+		for feed in p.solver.feeds_used:
+			if feed.startswith('/'): continue
+			iface = iface_cache.get_interface(feed)
+			icon = iface_cache.get_icon_path(iface)
+			if icon is None:
+				print "Downloading icon..."
+				download_icon = p.fetcher.download_icon(iface)
+				h.wait_for_blocker(download_icon)
+
 	uri = None
 	p = None
 
 	keys_used = set()
+
+	print "Building package..."
 
 	tmp = tempfile.mkdtemp(prefix = '0export-')
 	try:

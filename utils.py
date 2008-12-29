@@ -46,7 +46,7 @@ class NoLocalRestrictions(dict):
 		return [no_local]
 
 def export_feeds(export_dir, feeds, keys_used):
-	"""Copy each feed in feeds from the cache to export_dir.
+	"""Copy each feed (and icon) in feeds from the cache to export_dir.
 	Add all signing key fingerprints to keys_used."""
 	for feed in feeds:
 		if feed.startswith('/'):
@@ -63,6 +63,11 @@ def export_feeds(export_dir, feeds, keys_used):
 				os.makedirs(feed_dir)
 			shutil.copyfile(cached, feed_dst)
 			info("Exported feed %s", feed)
+
+			icon_path = iface_cache.iface_cache.get_icon_path(iface_cache.iface_cache.get_interface(feed))
+			if icon_path:
+				icon_dst = os.path.join(feed_dir, 'icon.png')
+				shutil.copyfile(icon_path, icon_dst)
 
 			# Get the keys
 			stream = file(cached)
