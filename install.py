@@ -18,8 +18,9 @@ else:
 	pypath = ''
 os.environ['PYTHONPATH'] = zidir + pypath
 
-from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler, model
+from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler, model, namespaces
 from zeroinstall import SafeException, zerostore
+from zeroinstall.gtkui import xdgutils
 
 import logging
 logger = logging.getLogger()
@@ -109,7 +110,18 @@ def do_install():
 
 def add_to_menu(uris):
 	for uri in uris:
-		check_call([os.path.join(mydir, 'zeroinstall', '0desktop'), uri])
+		iface = iface_cache.iface_cache.get_interface(uri)
+		icon_path = iface_cache.iface_cache.get_icon_path(iface)
+
+		feed_category = ''
+		for meta in iface.get_metadata(namespaces.XMLNS_IFACE, 'category'):
+			c = meta.content
+			if '\n' in c:
+				raise Exception("Invalid category '%s'" % c)
+			feed_category = c
+			break
+
+		xdgutils.add_to_menu(iface, icon_path, feed_category)
 
 def run(uri):
 	print "Running program..."
