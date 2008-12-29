@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # This script is part of 0export
 # Copyright (C) 2008, Thomas Leonard
 # See http://0install.net for details.
