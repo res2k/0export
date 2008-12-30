@@ -1,5 +1,5 @@
 import os, subprocess, shutil
-from logging import info
+from logging import info, warn
 
 from zeroinstall import SafeException
 from zeroinstall.injector import model, namespaces, gpg, iface_cache
@@ -49,6 +49,7 @@ def export_feeds(export_dir, feeds, keys_used):
 	"""Copy each feed (and icon) in feeds from the cache to export_dir.
 	Add all signing key fingerprints to keys_used."""
 	for feed in feeds:
+		print "Exporting feed", feed
 		if feed.startswith('/'):
 			info("Skipping local feed %s", feed)
 			continue
@@ -88,6 +89,7 @@ def get_implementation_path(impl):
 
 def export_impls(export_dir, impls):
 	implementations = os.path.join(export_dir, 'implementations')
+	print "Exporting implementations"
 	for impl in impls:
 		# Store implementation
 		src = get_implementation_path(impl)
