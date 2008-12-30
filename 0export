@@ -28,6 +28,7 @@ extract_header = extract_header.replace('00000', "%05d" % len(extract_header))
 parser = OptionParser(usage="usage: %prog setup.sh URI...\n"
 			"Create setup.sh self-extracting installer for program(s) URI...")
 
+parser.add_option("-a", "--arch", help="add a target architecture (os-cpu)", metavar='CPU', action='append')
 parser.add_option("-v", "--verbose", help="more verbose output", action='count')
 parser.add_option("-V", "--version", help="display version information", action='store_true')
 
@@ -57,12 +58,24 @@ if len(args) < 2:
 
 from zeroinstall import support
 from zeroinstall.zerostore import BadDigest
-from zeroinstall.injector import policy, handler, model
+from zeroinstall.injector import policy, handler, model, arch
 from zeroinstall import SafeException
 import utils
 
 setup_file = args[0]
 uris = [model.canonical_iface_uri(x) for x in args[1:]]
+
+if options.arch:
+	def get_arch(arch_str):
+		if '-' not in arch_str:
+			raise Exception("Architecture syntax is OS-CPU (e.g. 'Linux-86_64')")
+		os, cpu = arch_str.split('-', 1)
+		if os in ("*", "any"): os = None
+		if cpu in ("*", "any"): cpu = None
+		return arch.get_architecture(os, cpu)
+	archs = [get_arch(a) for a in options.arch]
+else:
+	archs = [arch.get_host_architecture()]
 
 try:
 	h = handler.Handler()
@@ -72,42 +85,49 @@ try:
 
 	for uri in [ZEROINSTALL_URI] + uris:
 		print "Choosing versions for %s..." % uri
+		versions = 0
+		for target_arch in archs:
+			p = policy.Policy(uri, h)
+			p.target_arch = target_arch
 
-		p = policy.Policy(uri, h)
+			# Don't let us choose local devel versions
+			p.solver.extra_restrictions = utils.NoLocalRestrictions()
 
-		# Don't let us choose local devel versions
-		p.solver.extra_restrictions = utils.NoLocalRestrictions()
+			solved = p.solve_with_downloads()
+			h.wait_for_blocker(solved)
 
-		solved = p.solve_with_downloads()
-		h.wait_for_blocker(solved)
+			if not p.ready:
+				if len(archs) > 1:
+					warn("Failed to select any version for %s for architecture %s" % (uri, target_arch))
+				continue
+			versions += 1
 
-		if not p.ready:
-			raise SafeException("Failed to select a set of versions!")
+			for iface, impl in p.solver.selections.items():
+				print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch)
+				implementations_used.add(impl.id)
+			feeds_used = feeds_used | p.solver.feeds_used
 
-		for iface, impl in p.solver.selections.items():
-			print "  %-10s : %s" % (iface.get_name(), impl.get_version())
-			implementations_used.add(impl.id)
-		feeds_used = feeds_used | p.solver.feeds_used
+			downloads = p.download_uncached_implementations()
+			if downloads:
+				print "Downloading implementations..."
+				h.wait_for_blocker(downloads)
 
-		downloads = p.download_uncached_implementations()
-		if downloads:
-			print "Downloading implementations..."
-			h.wait_for_blocker(downloads)
+			iface_cache = p.solver.iface_cache
 
-		iface_cache = p.solver.iface_cache
+			if uri == ZEROINSTALL_URI:
+				zeroinstall_impl = p.solver.selections[iface_cache.get_interface(uri)].id
 
-		if uri == ZEROINSTALL_URI:
-			zeroinstall_impl = p.solver.selections[iface_cache.get_interface(uri)].id
-
-		for feed in p.solver.feeds_used:
-			if feed.startswith('/'): continue
-			iface = iface_cache.get_interface(feed)
-			icon = iface_cache.get_icon_path(iface)
-			if icon is None:
-				download_icon = p.fetcher.download_icon(iface)
-				if download_icon:
-					print "Downloading icon..."
-					h.wait_for_blocker(download_icon)
+			for feed in p.solver.feeds_used:
+				if feed.startswith('/'): continue
+				iface = iface_cache.get_interface(feed)
+				icon = iface_cache.get_icon_path(iface)
+				if icon is None:
+					download_icon = p.fetcher.download_icon(iface)
+					if download_icon:
+						print "Downloading icon..."
+						h.wait_for_blocker(download_icon)
+		if not versions:
+			raise SafeException("Failed to select a set of versions for %s" % uri)
 
 	uri = None
 	p = None
