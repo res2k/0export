@@ -104,9 +104,10 @@ try:
 			iface = iface_cache.get_interface(feed)
 			icon = iface_cache.get_icon_path(iface)
 			if icon is None:
-				print "Downloading icon..."
 				download_icon = p.fetcher.download_icon(iface)
-				h.wait_for_blocker(download_icon)
+				if download_icon:
+					print "Downloading icon..."
+					h.wait_for_blocker(download_icon)
 
 	uri = None
 	p = None

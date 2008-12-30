@@ -80,7 +80,7 @@ def do_install():
 				feed_stream.close()
 			stream.close()
 
-			if icon_path:
+			if os.path.exists(icon_path):
 				icons_cache = basedir.save_cache_path(namespaces.config_site, 'interface_icons')
 				icon_file = os.path.join(icons_cache, model.escape(uri))
 				if not os.path.exists(icon_file):
