@@ -20,7 +20,7 @@ else:
 os.environ['PYTHONPATH'] = zidir + pypath
 
 from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler, model, namespaces
-from zeroinstall.support import basedir
+from zeroinstall.support import basedir, find_in_path
 from zeroinstall import SafeException, zerostore
 from zeroinstall.gtkui import xdgutils
 
@@ -131,6 +131,24 @@ def add_to_menu(uris):
 			break
 
 		xdgutils.add_to_menu(iface, icon_path, feed_category)
+
+	if find_in_path('0launch'):
+		return
+
+	if find_in_path('sudo') and find_in_path('gnome-terminal') and find_in_path('apt-get'):
+		retcode = subprocess.call(['gnome-terminal', '--disable-factory', '-x', 'sh', '-c',
+					   'echo "We need to install the zeroinstall-injector package to make the menu items work."; '
+					   'sudo apt-get install zeroinstall-injector || sleep 4\''])
+
+		if find_in_path('0launch'):
+			return
+
+	import gtk
+	box = gtk.MessageDialog(None, 0, buttons = gtk.BUTTONS_OK)
+	box.set_markup("The new menu item won't work until the '<b>zeroinstall-injector</b>' package is installed.\n"
+			"Please install it using your distribution's package manager.")
+	box.run()
+	box.destroy()
 
 def run(uri):
 	print "Running program..."

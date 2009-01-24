@@ -145,7 +145,6 @@ try:
 		if resp != gtk.RESPONSE_OK:
 			raise Exception("Cancelled at user's request")
 
-	if w:
 		if add_to_menu_option.get_active():
 			install.add_to_menu(toplevel_uris)
 
