@@ -124,6 +124,11 @@ try:
 		raise Exception("Failed to unpack archive (code %d)" % child.returncode)
 	self_stream.close()
 
+	# Stop Python adding .pyc files
+	for root, dirs, files in os.walk(os.path.join(tmp, 'zeroinstall')):
+		print root
+		os.chmod(root, 0500)
+
 	sys.path.insert(0, tmp)
 	sys.argv[0] = os.path.join(tmp, 'install.py')
 
@@ -147,10 +152,12 @@ try:
 
 		if add_to_menu_option.get_active():
 			install.add_to_menu(toplevel_uris)
-
-	if w is None or run_option.get_active():
-		print "Running..."
-		install.run(toplevel_uris[0])
-
 finally:
+	print "Removing temporary files..."
+	for root, dirs, files in os.walk(os.path.join(tmp, 'zeroinstall')):
+		os.chmod(root, 0700)
 	shutil.rmtree(tmp)
+
+if w is None or run_option.get_active():
+	print "Running..."
+	install.run(toplevel_uris[0])

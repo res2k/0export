@@ -24,6 +24,9 @@ from zeroinstall.support import basedir, find_in_path
 from zeroinstall import SafeException, zerostore
 from zeroinstall.gtkui import xdgutils
 
+# During the install we copy this to the local cache
+copied_0launch_in_cache = None
+
 import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -93,7 +96,8 @@ def do_install():
 
 	h = handler.Handler()
 	toplevel_uris = [uri.strip() for uri in file(os.path.join(mydir, 'toplevel_uris'))]
-	for uri in toplevel_uris:
+	ZEROINSTALL_URI = "http://0install.net/2007/interfaces/ZeroInstall.xml"
+	for uri in [ZEROINSTALL_URI] + toplevel_uris:
 		# This is so the solver treats versions in the setup archive as 'cached',
 		# meaning that it will prefer using them to doing a download
 		stores.stores.append(setup_store)
@@ -115,6 +119,13 @@ def do_install():
 				stores.add_dir_to_cache(impl.id, impl_src)
 			else:
 				print >>sys.stderr, "Required impl %s not present" % impl
+
+		# Remember where we copied 0launch to, because we'll need it after
+		# the temporary directory is deleted.
+		if uri == ZEROINSTALL_URI:
+			global copied_0launch_in_cache
+			iface = iface_cache.iface_cache.get_interface(uri)
+			copied_0launch_in_cache = p.get_implementation_path(p.get_implementation(iface))
 	return toplevel_uris
 
 def add_to_menu(uris):
@@ -136,9 +147,9 @@ def add_to_menu(uris):
 		return
 
 	if find_in_path('sudo') and find_in_path('gnome-terminal') and find_in_path('apt-get'):
-		retcode = subprocess.call(['gnome-terminal', '--disable-factory', '-x', 'sh', '-c',
+		check_call(['gnome-terminal', '--disable-factory', '-x', 'sh', '-c',
 					   'echo "We need to install the zeroinstall-injector package to make the menu items work."; '
-					   'sudo apt-get install zeroinstall-injector || sleep 4\''])
+					   'sudo apt-get install zeroinstall-injector || sleep 4'])
 
 		if find_in_path('0launch'):
 			return
@@ -149,7 +160,9 @@ def add_to_menu(uris):
 			"Please install it using your distribution's package manager.")
 	box.run()
 	box.destroy()
+	gtk.gdk.flush()
 
 def run(uri):
 	print "Running program..."
-	check_call([os.path.join(mydir, 'zeroinstall', '0launch'), '--offline', uri])
+	launch = os.path.join(copied_0launch_in_cache, '0launch')
+	os.execv(launch, [launch, '--offline', uri])
