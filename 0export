@@ -17,7 +17,8 @@ version = '0.1'
 extract_header = """#!/bin/sh
 # 0export %s
 archive_offset=00000
-archive_format=application/x-bzip-compressed-tar
+archive_format=application/x-tar
+package_version=2
 exec python - "$0" "$archive_offset" << EOF
 """ + file(os.path.join(os.path.dirname(__file__), 'unpacker.py')).read() + """
 EOF
@@ -77,13 +78,14 @@ if options.arch:
 else:
 	archs = [arch.get_host_architecture()]
 
-try:
+def choose_implementations(uris):
 	h = handler.Handler()
 
 	feeds_used = set()		# URI
 	implementations_used = set()	# ID
+	uri_impls = {}
 
-	for uri in [ZEROINSTALL_URI] + uris:
+	for uri in uris:
 		print "Choosing versions for %s..." % uri
 		versions = 0
 		for target_arch in archs:
@@ -114,8 +116,7 @@ try:
 
 			iface_cache = p.solver.iface_cache
 
-			if uri == ZEROINSTALL_URI:
-				zeroinstall_impl = p.solver.selections[iface_cache.get_interface(uri)].id
+			uri_impls[uri] = p.solver.selections[iface_cache.get_interface(uri)].id
 
 			for feed in p.solver.feeds_used:
 				if feed.startswith('/'): continue
@@ -129,6 +130,14 @@ try:
 		if not versions:
 			raise SafeException("Failed to select a set of versions for %s" % uri)
 
+	return (feeds_used, implementations_used, uri_impls)
+
+bootstrap_uris = [ZEROINSTALL_URI]
+
+try:
+	(bootstrap_feeds_used, bootstrap_implementations_used, bootstrap_uri_impls) = choose_implementations(bootstrap_uris)
+	(feeds_used, implementations_used, uri_impls) = choose_implementations(uris)
+
 	uri = None
 	p = None
 
@@ -137,34 +146,57 @@ try:
 	print "Building package..."
 
 	tmp = tempfile.mkdtemp(prefix = '0export-')
+	bootstrap_tmp = tempfile.mkdtemp(prefix = '0export-')
 	try:
-		utils.export_feeds(tmp, feeds_used, keys_used)
-		utils.export_impls(tmp, implementations_used)
+		utils.export_feeds(bootstrap_tmp, bootstrap_feeds_used, keys_used)
+		utils.export_feeds(bootstrap_tmp, feeds_used, keys_used)
+		utils.export_impls(bootstrap_tmp, bootstrap_implementations_used)
 
-		os.symlink(os.path.join('implementations', zeroinstall_impl), os.path.join(tmp, 'zeroinstall'))
+		os.symlink(os.path.join('implementations', bootstrap_uri_impls[ZEROINSTALL_URI]), os.path.join(bootstrap_tmp, 'zeroinstall'))
 
-		keys_dir = os.path.join(tmp, 'keys')
+		keys_dir = os.path.join(bootstrap_tmp, 'keys')
 		os.mkdir(keys_dir)
 		for key in keys_used:
 			utils.export_key(key, keys_dir)
 
 		mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
 		shutil.copyfile(os.path.join(mydir, 'install.py'),
-				os.path.join(tmp, 'install.py'))
+				os.path.join(bootstrap_tmp, 'install.py'))
 
-		toplevels = file(os.path.join(tmp, 'toplevel_uris'), 'w')
+		toplevels = file(os.path.join(bootstrap_tmp, 'toplevel_uris'), 'w')
 		for uri in uris:
 			toplevels.write(uri + '\n')
 		toplevels.close()
 
+		# Create an archive with bootstrap data
+		bootstrap_path = os.path.join(tmp, 'bootstrap.tar.bz2')
+		ts = tarfile.open(bootstrap_path, 'w|bz2')
+		ts.add(bootstrap_tmp, '.')
+		ts.close()
+
+		# Collect all other implementations in separate archives in the archive
+		impl_files = []
+		for impl in implementations_used:
+			impltmp = tempfile.mkdtemp(prefix = '0export-')
+			utils.export_impls(impltmp, [impl])
+			implpath = os.path.join(tmp, impl+'.tar.bz2')
+			ts = tarfile.open(implpath, 'w|bz2')
+			ts.add(os.path.join(impltmp, 'implementations', impl), '.')
+			ts.close()
+			support.ro_rmtree(impltmp)
+			impl_files.append(implpath)
+
 		setup_stream = file(setup_file, 'w')
 		setup_stream.write(extract_header)
-		ts = tarfile.open(setup_file, 'w|bz2', setup_stream)
-		ts.add(tmp, '.')
-		ts.close()
+		setup_tar = tarfile.open(setup_file, 'w', setup_stream)
+		setup_tar.add(bootstrap_path, os.path.basename(bootstrap_path))
+		for impl in impl_files:
+			setup_tar.add(impl, 'implementations/' + os.path.basename(impl))
+		setup_tar.close()
 		setup_stream.close()
 		os.chmod(setup_file, (os.stat(setup_file).st_mode & 0777) | 0111)
 	finally:
+		support.ro_rmtree(bootstrap_tmp)
 		support.ro_rmtree(tmp)
 except BadDigest, ex:
 	print >>sys.stderr, str(ex)

@@ -89,8 +89,8 @@ def get_implementation_path(impl):
 
 def export_impls(export_dir, impls):
 	implementations = os.path.join(export_dir, 'implementations')
-	print "Exporting implementations"
 	for impl in impls:
+		print "Exporting implementation", impl
 		# Store implementation
 		src = get_implementation_path(impl)
 		dst = os.path.join(implementations, impl)

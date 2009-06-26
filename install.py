@@ -5,7 +5,7 @@
 # This file goes inside the generated setup.sh archive
 # It runs or installs the program
 
-import os, sys, subprocess
+import os, sys, subprocess, tempfile, tarfile, gobject
 import shutil
 
 mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -42,7 +42,8 @@ def check_call(*args, **kwargs):
 	if exitstatus != 0:
 		raise SafeException("Command failed with exit code %d:\n%s" % (exitstatus, ' '.join(args[0])))
 
-def do_install():
+sent = 0
+def do_install(archive_stream, progress_bar, child):
 	# Step 1. Import GPG keys
 
 	# Maybe GPG has never been run before. Let it initialse, or we'll get an error code
@@ -91,41 +92,107 @@ def do_install():
 
 	# Step 3. Solve to find out which implementations we actually need
 
-	setup_store = zerostore.Store(os.path.join(mydir, 'implementations'))
-	stores = iface_cache.iface_cache.stores
+	extract_impls = []
+	extract_impls_seen = set()
+	tmp = tempfile.mkdtemp(prefix = '0export-')
+	try:
+		# Create a "fake store" with the implementation in the archive
+		archive = tarfile.open(fileobj=archive_stream)
+		archive_implementations = set()
+		for tarmember in archive:
+			if tarmember.name.startswith('implementations'):
+			      impl = os.path.basename(tarmember.name).split('.')[0]
+			      os.mkdir(os.path.join(mydir, impl))
+			      archive_implementations.add(impl)
 
-	h = handler.Handler()
-	toplevel_uris = [uri.strip() for uri in file(os.path.join(mydir, 'toplevel_uris'))]
-	ZEROINSTALL_URI = "http://0install.net/2007/interfaces/ZeroInstall.xml"
-	for uri in [ZEROINSTALL_URI] + toplevel_uris:
-		# This is so the solver treats versions in the setup archive as 'cached',
-		# meaning that it will prefer using them to doing a download
-		stores.stores.append(setup_store)
+		bootstrap_store = zerostore.Store(os.path.join(mydir, 'implementations'))
+		fake_store = zerostore.Store(tmp)
+		stores = iface_cache.iface_cache.stores
 
-		# Shouldn't need to download anything, but we might not have all feeds
-		p = policy.Policy(uri, h)
-		p.network_use = model.network_minimal
-		download_feeds = p.solve_with_downloads()
-		h.wait_for_blocker(download_feeds)
-		assert p.ready
+		h = handler.Handler()
+		toplevel_uris = [uri.strip() for uri in file(os.path.join(mydir, 'toplevel_uris'))]
+		ZEROINSTALL_URI = "http://0install.net/2007/interfaces/ZeroInstall.xml"
+		for uri in [ZEROINSTALL_URI] + toplevel_uris:
+			# This is so the solver treats versions in the setup archive as 'cached',
+			# meaning that it will prefer using them to doing a download
+			stores.stores.append(bootstrap_store)
+			stores.stores.append(fake_store)
 
-		# Add anything chosen from the setup store to the main store
-		stores.stores.remove(setup_store)
-		for iface, impl in p.get_uncached_implementations():
-			print "Need to import", impl
-			impl_src = os.path.join(mydir, 'implementations', impl.id)
+			# Shouldn't need to download anything, but we might not have all feeds
+			p = policy.Policy(uri, h)
+			p.network_use = model.network_minimal
+			download_feeds = p.solve_with_downloads()
+			h.wait_for_blocker(download_feeds)
+			assert p.ready
 
-			if os.path.isdir(impl_src):
-				stores.add_dir_to_cache(impl.id, impl_src)
-			else:
-				print >>sys.stderr, "Required impl %s not present" % impl
+			# Add anything chosen from the setup store to the main store
+			stores.stores.remove(fake_store)
+			stores.stores.remove(bootstrap_store)
+			for iface, impl in p.get_uncached_implementations():
+				print "Need to import", impl
+				if impl.id in archive_implementations:
+					# Delay extraction
+					if impl.id not in extract_impls_seen:
+						extract_impls.append(impl)
+						extract_impls_seen.add(impl.id)
+				else:
+					impl_src = os.path.join(mydir, 'implementations', impl.id)
 
-		# Remember where we copied 0launch to, because we'll need it after
-		# the temporary directory is deleted.
-		if uri == ZEROINSTALL_URI:
-			global copied_0launch_in_cache
-			iface = iface_cache.iface_cache.get_interface(uri)
-			copied_0launch_in_cache = p.get_implementation_path(p.get_implementation(iface))
+					if os.path.isdir(impl_src):
+						stores.add_dir_to_cache(impl.id, impl_src)
+					else:
+						print >>sys.stderr, "Required impl %s not present" % impl
+
+			# Remember where we copied 0launch to, because we'll need it after
+			# the temporary directory is deleted.
+			if uri == ZEROINSTALL_URI:
+				global copied_0launch_in_cache
+				iface = iface_cache.iface_cache.get_interface(uri)
+				copied_0launch_in_cache = p.get_implementation_path(p.get_implementation(iface))
+	finally:
+		shutil.rmtree(tmp)
+
+	# Count total number of bytes to extract
+	extract_total = 0
+	for impl in extract_impls:
+		impl_info = archive.getmember('implementations/' + impl.id + '.tar.bz2')
+		extract_total += impl_info.size
+	global sent
+	sent = 0
+
+	# Actually extract+import implementations in archive
+	for impl in extract_impls:
+		tmp = tempfile.mkdtemp(prefix = '0export-')
+		try:
+			impl_stream = archive.extractfile('implementations/' + impl.id + '.tar.bz2')
+			child[0] = subprocess.Popen('bunzip2|tar xf -', shell = True, stdin = subprocess.PIPE, cwd = tmp)
+			mainloop = gobject.MainLoop(gobject.main_context_default())
+
+			def pipe_ready(src, cond):
+				global sent
+				data = impl_stream.read(4096)
+				if not data:
+					mainloop.quit()
+					child[0].stdin.close()
+					return False
+				sent += len(data)
+				if progress_bar:
+					progress_bar.set_fraction(float(sent) / extract_total)
+				child[0].stdin.write(data)
+				return True
+			gobject.io_add_watch(child[0].stdin, gobject.IO_OUT | gobject.IO_HUP, pipe_ready)
+
+			mainloop.run()
+
+			child[0].wait()
+			if child[0].returncode:
+				raise Exception("Failed to unpack archive (code %d)" % child.returncode)
+
+			stores.add_dir_to_cache(impl.id, tmp)
+
+		finally:
+			shutil.rmtree(tmp)
+
 	return toplevel_uris
 
 def add_to_menu(uris):

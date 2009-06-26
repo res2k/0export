@@ -1,4 +1,4 @@
-import tempfile, sys, shutil, os, subprocess, gobject, signal
+import tempfile, sys, shutil, os, subprocess, gobject, signal, tarfile
 
 def get_busy_pointer():
 	# See http://mail.gnome.org/archives/gtk-list/2007-May/msg00100.html
@@ -26,7 +26,8 @@ tmp = tempfile.mkdtemp(prefix = '0export-')
 try:
 	w = None
 	progress_bar = None
-	print "Extracting..."
+	child = [None]
+	print "Extracting bootstrap data..."
 	try:
 		import pygtk; pygtk.require('2.0')
 		import gtk
@@ -88,8 +89,9 @@ try:
 		w.vbox.show_all()
 		def response(w, resp):
 			print >>sys.stderr, "Cancelled at user's request"
-			os.kill(child.pid, signal.SIGTERM)
-			child.wait()
+			if child[0]:
+			      os.kill(child[0].pid, signal.SIGTERM)
+			      child[0].wait()
 			sys.exit(1)
 		response_handler = w.connect('response', response)
 	except Exception, ex:
@@ -97,32 +99,32 @@ try:
 	self_stream = file(sys.argv[1], 'rb')
 	archive_offset = int(sys.argv[2])
 	self_stream.seek(archive_offset)
-	archive_size = os.path.getsize(sys.argv[1]) - archive_offset
 	old_umask = os.umask(077)
-	child = subprocess.Popen('bunzip2|tar xf -', shell = True, stdin = subprocess.PIPE, cwd = tmp)
-	sent = 0
 	mainloop = gobject.MainLoop(gobject.main_context_default())
-
-	def pipe_ready(src, cond):
-		global sent
-		data = self_stream.read(4096)
-		if not data:
-			mainloop.quit()
-			child.stdin.close()
-			return False
-		sent += len(data)
-		if progress_bar:
-			progress_bar.set_fraction(float(sent) / archive_size)
-		child.stdin.write(data)
-		return True
-	gobject.io_add_watch(child.stdin, gobject.IO_OUT | gobject.IO_HUP, pipe_ready)
-
-	mainloop.run()
-
-	child.wait()
-	if child.returncode:
-		raise Exception("Failed to unpack archive (code %d)" % child.returncode)
-	self_stream.close()
+	archive = tarfile.open(fileobj=self_stream)
+	# Extract the bootstrap data (interfaces, 0install itself)
+	bootstrap_stream = None
+	for tarmember in archive:
+		if tarmember.name == 'bootstrap.tar.bz2':
+			bootstrap_stream = archive.extractfile(tarmember)
+			break
+	if not bootstrap_stream:
+		raise Exception("No bootstrap data in archive (broken?)")
+	bootstrap_tar = tarfile.open(mode='r|bz2', fileobj=bootstrap_stream)
+	umask = os.umask(0)
+	os.umask(umask)
+	items = []
+	for tarinfo in bootstrap_tar:
+		tarinfo.mode = (tarinfo.mode | 0644) & ~umask
+		bootstrap_tar.extract(tarinfo, tmp)
+		if tarinfo.isdir():
+			items.append(tarinfo)
+	for tarinfo in items:
+		path = os.path.join(tmp, tarinfo.name)
+		os.utime(path, (tarinfo.mtime, tarinfo.mtime))
+	bootstrap_tar.close()
+	bootstrap_stream.close()
+	archive.close()
 
 	# Stop Python adding .pyc files
 	for root, dirs, files in os.walk(os.path.join(tmp, 'zeroinstall')):
@@ -134,7 +136,9 @@ try:
 
 	print "Installing..."
 	import install
-	toplevel_uris = install.do_install()
+	self_stream.seek(archive_offset)
+	toplevel_uris = install.do_install(self_stream, progress_bar, child)
+	self_stream.close()
 
 	if w:
 		notebook.next_page()
