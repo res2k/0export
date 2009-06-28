@@ -83,7 +83,7 @@ def choose_implementations(uris):
 
 	feeds_used = set()		# URI
 	implementations_used = set()	# ID
-	uri_impls = {}
+	uri_impls = {}			# Maps top-level URIs to implementations
 
 	for uri in uris:
 		print "Choosing versions for %s..." % uri
@@ -138,9 +138,6 @@ try:
 	(bootstrap_feeds_used, bootstrap_implementations_used, bootstrap_uri_impls) = choose_implementations(bootstrap_uris)
 	(feeds_used, implementations_used, uri_impls) = choose_implementations(uris)
 
-	uri = None
-	p = None
-
 	keys_used = set()
 
 	print "Building package..."
@@ -148,21 +145,27 @@ try:
 	tmp = tempfile.mkdtemp(prefix = '0export-')
 	bootstrap_tmp = tempfile.mkdtemp(prefix = '0export-')
 	try:
-		utils.export_feeds(bootstrap_tmp, bootstrap_feeds_used, keys_used)
-		utils.export_feeds(bootstrap_tmp, feeds_used, keys_used)
+		# Add feeds...
+		utils.export_feeds(bootstrap_tmp, bootstrap_feeds_used | feeds_used, keys_used)
+
+		# Add implementations...
 		utils.export_impls(bootstrap_tmp, bootstrap_implementations_used)
 
 		os.symlink(os.path.join('implementations', bootstrap_uri_impls[ZEROINSTALL_URI]), os.path.join(bootstrap_tmp, 'zeroinstall'))
 
+		# Add keys...
 		keys_dir = os.path.join(bootstrap_tmp, 'keys')
 		os.mkdir(keys_dir)
 		for key in keys_used:
 			utils.export_key(key, keys_dir)
 
+		# Add installer...
 		mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
 		shutil.copyfile(os.path.join(mydir, 'install.py'),
 				os.path.join(bootstrap_tmp, 'install.py'))
 
+		# Record the toplevel interfaces (not those brought in only as dependencies)
+		# These are the programs the installer will offer to run
 		toplevels = file(os.path.join(bootstrap_tmp, 'toplevel_uris'), 'w')
 		for uri in uris:
 			toplevels.write(uri + '\n')
@@ -176,14 +179,16 @@ try:
 
 		# Collect all other implementations in separate archives in the archive
 		impl_files = []
-		for impl in implementations_used:
+		for impl in implementations_used - bootstrap_implementations_used:
 			impltmp = tempfile.mkdtemp(prefix = '0export-')
-			utils.export_impls(impltmp, [impl])
-			implpath = os.path.join(tmp, impl+'.tar.bz2')
-			ts = tarfile.open(implpath, 'w|bz2')
-			ts.add(os.path.join(impltmp, 'implementations', impl), '.')
-			ts.close()
-			support.ro_rmtree(impltmp)
+			try:
+				utils.export_impls(impltmp, [impl])
+				implpath = os.path.join(tmp, impl + '.tar.bz2')
+				ts = tarfile.open(implpath, 'w|bz2')
+				ts.add(os.path.join(impltmp, 'implementations', impl), '.')
+				ts.close()
+			finally:
+				support.ro_rmtree(impltmp)
 			impl_files.append(implpath)
 
 		setup_stream = file(setup_file, 'w')

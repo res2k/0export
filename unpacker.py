@@ -1,4 +1,4 @@
-import tempfile, sys, shutil, os, subprocess, gobject, signal, tarfile
+import tempfile, sys, shutil, os, subprocess, gobject, tarfile
 
 def get_busy_pointer():
 	# See http://mail.gnome.org/archives/gtk-list/2007-May/msg00100.html
@@ -26,7 +26,7 @@ tmp = tempfile.mkdtemp(prefix = '0export-')
 try:
 	w = None
 	progress_bar = None
-	child = [None]
+	installer = None
 	print "Extracting bootstrap data..."
 	try:
 		import pygtk; pygtk.require('2.0')
@@ -89,9 +89,8 @@ try:
 		w.vbox.show_all()
 		def response(w, resp):
 			print >>sys.stderr, "Cancelled at user's request"
-			if child[0]:
-			      os.kill(child[0].pid, signal.SIGTERM)
-			      child[0].wait()
+			if installer:
+				installer.abort()
 			sys.exit(1)
 		response_handler = w.connect('response', response)
 	except Exception, ex:
@@ -101,16 +100,18 @@ try:
 	self_stream.seek(archive_offset)
 	old_umask = os.umask(077)
 	mainloop = gobject.MainLoop(gobject.main_context_default())
-	archive = tarfile.open(fileobj=self_stream)
+	archive = tarfile.open(fileobj = self_stream)
+
 	# Extract the bootstrap data (interfaces, 0install itself)
 	bootstrap_stream = None
 	for tarmember in archive:
 		if tarmember.name == 'bootstrap.tar.bz2':
 			bootstrap_stream = archive.extractfile(tarmember)
 			break
-	if not bootstrap_stream:
+	else:
 		raise Exception("No bootstrap data in archive (broken?)")
-	bootstrap_tar = tarfile.open(mode='r|bz2', fileobj=bootstrap_stream)
+
+	bootstrap_tar = tarfile.open(mode = 'r|bz2', fileobj = bootstrap_stream)
 	umask = os.umask(0)
 	os.umask(umask)
 	items = []
@@ -128,7 +129,6 @@ try:
 
 	# Stop Python adding .pyc files
 	for root, dirs, files in os.walk(os.path.join(tmp, 'zeroinstall')):
-		print root
 		os.chmod(root, 0500)
 
 	sys.path.insert(0, tmp)
@@ -137,7 +137,8 @@ try:
 	print "Installing..."
 	import install
 	self_stream.seek(archive_offset)
-	toplevel_uris = install.do_install(self_stream, progress_bar, child)
+	installer = install.Installer()
+	toplevel_uris = installer.do_install(self_stream, progress_bar)
 	self_stream.close()
 
 	if w:

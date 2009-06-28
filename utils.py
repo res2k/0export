@@ -49,10 +49,10 @@ def export_feeds(export_dir, feeds, keys_used):
 	"""Copy each feed (and icon) in feeds from the cache to export_dir.
 	Add all signing key fingerprints to keys_used."""
 	for feed in feeds:
-		print "Exporting feed", feed
 		if feed.startswith('/'):
 			info("Skipping local feed %s", feed)
 			continue
+		print "Exporting feed", feed
 		# Store feed
 		cached = basedir.load_first_cache(namespaces.config_site,
 						  'interfaces',
