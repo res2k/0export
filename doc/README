@@ -36,7 +36,7 @@ INSTRUCTIONS
 
 Create a short-cut to 0export:
 
-  $ 0alias 0export http://0install.net/2008/interfaces/0export.xml
+  $ 0alias 0export http://0install.net/tools/0export.xml
 
 To create an installer for Edit:
 

@@ -19,7 +19,7 @@ installed using setup.sh are added to the Zero Install cache and are therefore
 still shared between users, and will get updates over the web where possible.</description>
   <homepage>http://0install.net/0export.html</homepage>
 
-  <feed-for interface="http://0install.net/2006/interfaces/0export.xml"/>
+  <feed-for interface="http://0install.net/tools/0export.xml"/>
 
   <release:management xmlns:release="http://zero-install.sourceforge.net/2007/namespaces/0release">
     <!-- Update the copy of the version number in the main program -->
