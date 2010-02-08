@@ -54,6 +54,9 @@ class FakeStore:
 		else:
 			return None
 
+def get_gpg():
+	return find_in_path('gpg') or find_in_path('gpg2')
+
 class Installer:
 	child = None
 	sent = 0
@@ -69,11 +72,11 @@ class Installer:
 
 		# Maybe GPG has never been run before. Let it initialse, or we'll get an error code
 		# from the first import... (ignore return value here)
-		subprocess.call(['gpg', '--check-trustdb'])
+		subprocess.call([get_gpg(), '--check-trustdb'])
 
 		key_dir = os.path.join(mydir, 'keys')
 		for key in os.listdir(key_dir):
-			check_call(['gpg', '--import', os.path.join(key_dir, key)])
+			check_call([get_gpg(), '--import', os.path.join(key_dir, key)])
 
 		# Step 2. Import feeds and trust their signing keys
 		for root, dirs, files in os.walk(os.path.join(mydir, 'feeds')):
@@ -121,8 +124,8 @@ class Installer:
 			fake_store = FakeStore()
 			for tarmember in archive:
 				if tarmember.name.startswith('implementations'):
-				      impl = os.path.basename(tarmember.name).split('.')[0]
-				      fake_store.impls.add(impl)
+					impl = os.path.basename(tarmember.name).split('.')[0]
+					fake_store.impls.add(impl)
 
 			bootstrap_store = zerostore.Store(os.path.join(mydir, 'implementations'))
 			stores = iface_cache.iface_cache.stores

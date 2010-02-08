@@ -3,7 +3,7 @@ from logging import info, warn
 
 from zeroinstall import SafeException
 from zeroinstall.injector import model, namespaces, gpg, iface_cache
-from zeroinstall.support import basedir
+from zeroinstall.support import basedir, find_in_path
 from zeroinstall.zerostore import manifest
 
 def escape_slashes(path):
@@ -21,9 +21,12 @@ def get_feed_path(feed):
 			raise SafeException("Invalid URL '%s'" % feed)
 	return os.path.join('feeds', scheme, domain, escape_slashes(rest))
 
+def get_gpg():
+	return find_in_path('gpg') or find_in_path('gpg2')
+
 def export_key(fingerprint, key_dir):
 	key_path = os.path.join(key_dir, fingerprint[-16:] + '.gpg')
-	child = subprocess.Popen(['gpg', '-a', '--export', fingerprint], stdout = subprocess.PIPE)
+	child = subprocess.Popen([get_gpg(), '-a', '--export', fingerprint], stdout = subprocess.PIPE)
 	keydata, unused = child.communicate()
 	stream = file(key_path, 'w')
 	stream.write(keydata)
