@@ -67,7 +67,7 @@ class Installer:
 			self.child.wait()
 			self.child = None
 
-	def do_install(self, archive_stream, progress_bar):
+	def do_install(self, archive_stream, progress_bar, archive_offset):
 		# Step 1. Import GPG keys
 
 		# Maybe GPG has never been run before. Let it initialse, or we'll get an error code
@@ -116,11 +116,14 @@ class Installer:
 
 		# Step 3. Solve to find out which implementations we actually need
 
+		archive_stream.seek(archive_offset)
+
 		extract_impls = {}	# Impls we need but which are compressed (ID -> Impl)
 		tmp = tempfile.mkdtemp(prefix = '0export-')
 		try:
 			# Create a "fake store" with the implementation in the archive
-			archive = tarfile.open(fileobj = archive_stream)
+			archive = tarfile.open(name=archive_stream.name, mode='r|',
+                    fileobj=archive_stream)
 			fake_store = FakeStore()
 			for tarmember in archive:
 				if tarmember.name.startswith('implementations'):
@@ -180,11 +183,21 @@ class Installer:
 		self.sent = 0
 
 		# Actually extract+import implementations in archive
-		for impl in extract_impls.values():
-			print "Extracting", impl
+		archive_stream.seek(archive_offset)
+		archive = tarfile.open(name=archive_stream.name, mode='r|',
+                fileobj=archive_stream)
+
+		for tarmember in archive:
+			if not tarmember.name.startswith('implementations'):
+				continue
+			impl_id = tarmember.name.split('/')[1].split('.')[0]
+			if impl_id not in extract_impls:
+				print "Skip", impl_id
+				continue
+			print "Extracting", impl_id
 			tmp = tempfile.mkdtemp(prefix = '0export-')
 			try:
-				impl_stream = archive.extractfile('implementations/' + impl.id + '.tar.bz2')
+				impl_stream = archive.extractfile(tarmember)
 				self.child = subprocess.Popen('bunzip2|tar xf -', shell = True, stdin = subprocess.PIPE, cwd = tmp)
 				mainloop = gobject.MainLoop(gobject.main_context_default())
 
@@ -207,7 +220,7 @@ class Installer:
 				if self.child.returncode:
 					raise Exception("Failed to unpack archive (code %d)" % self.child.returncode)
 
-				stores.add_dir_to_cache(impl.id, tmp)
+				stores.add_dir_to_cache(impl_id, tmp)
 
 			finally:
 				shutil.rmtree(tmp)

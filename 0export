@@ -198,9 +198,9 @@ try:
 				support.ro_rmtree(impltmp)
 			impl_files.append(implpath)
 
-		setup_stream = file(setup_file, 'w')
+		setup_stream = file(setup_file, 'wb')
 		setup_stream.write(extract_header)
-		setup_tar = tarfile.open(setup_file, 'w', setup_stream)
+		setup_tar = tarfile.open(setup_file, 'w|', setup_stream)
 		setup_tar.add(bootstrap_path, os.path.basename(bootstrap_path))
 		for impl in impl_files:
 			setup_tar.add(impl, 'implementations/' + os.path.basename(impl))

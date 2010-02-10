@@ -100,7 +100,8 @@ try:
 	self_stream.seek(archive_offset)
 	old_umask = os.umask(077)
 	mainloop = gobject.MainLoop(gobject.main_context_default())
-	archive = tarfile.open(fileobj = self_stream)
+	archive = tarfile.open(name=self_stream.name, mode='r|',
+            fileobj=self_stream)
 
 	# Extract the bootstrap data (interfaces, 0install itself)
 	bootstrap_stream = None
@@ -111,7 +112,8 @@ try:
 	else:
 		raise Exception("No bootstrap data in archive (broken?)")
 
-	bootstrap_tar = tarfile.open(mode = 'r|bz2', fileobj = bootstrap_stream)
+	bootstrap_tar = tarfile.open(name=bootstrap_stream.name, mode='r|bz2',
+            fileobj=bootstrap_stream)
 	umask = os.umask(0)
 	os.umask(umask)
 	items = []
@@ -136,9 +138,8 @@ try:
 
 	print "Installing..."
 	import install
-	self_stream.seek(archive_offset)
 	installer = install.Installer()
-	toplevel_uris = installer.do_install(self_stream, progress_bar)
+	toplevel_uris = installer.do_install(self_stream, progress_bar, archive_offset)
 	self_stream.close()
 
 	if w:
