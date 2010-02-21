@@ -82,7 +82,7 @@ def choose_implementations(uris):
 	h = handler.Handler()
 
 	feeds_used = set()		# URI
-	implementations_used = set()	# ID
+	implementations_used = {}	# ID -> Implementation
 	uri_impls = {}			# Maps top-level URIs to implementations
 
 	for uri in uris:
@@ -106,7 +106,9 @@ def choose_implementations(uris):
 
 			for iface, impl in p.solver.selections.items():
 				print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch)
-				implementations_used.add(impl.id)
+				# TODO: assumes the ID is a digest (globally unique)
+				# With 0launch >= 0.45, that might not be true.
+				implementations_used[impl.id] = impl
 			feeds_used = feeds_used | p.solver.feeds_used
 
 			downloads = p.download_uncached_implementations()
@@ -179,10 +181,10 @@ try:
 
 		# Collect all other implementations in separate archives in the archive
 		impl_files = []
-		for impl in implementations_used - bootstrap_implementations_used:
+		for impl in set(implementations_used) - set(bootstrap_implementations_used):
 			impltmp = tempfile.mkdtemp(prefix = '0export-')
 			try:
-				utils.export_impls(impltmp, [impl])
+				utils.export_impls(impltmp, {impl : implementations_used[impl]})
 				implpath = os.path.join(tmp, impl + '.tar.bz2')
 				ts = tarfile.open(implpath, 'w|bz2')
 				ts.add(os.path.join(impltmp, 'implementations', impl), '.')

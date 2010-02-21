@@ -83,19 +83,34 @@ def export_feeds(export_dir, feeds, keys_used):
 			warn("Feed not cached: %s", feed)
 
 def get_implementation_path(impl):
-	if impl.startswith('/'):
-		return impl
-	return iface_cache.iface_cache.stores.lookup(impl)
+	if impl.id.startswith('/'):
+		return impl.id
+	stores = iface_cache.iface_cache.stores
+	if hasattr(stores, 'lookup_any'):
+		# 0launch >= 0.45
+		return stores.lookup_any(impl.digests)
+	return stores.lookup(impl.id)
 
+# impls is a map {digest: Implementation}. Create an exported item called
+# "digest" with the cached implemention (even if we cached it under a different
+# digest).
 def export_impls(export_dir, impls):
 	implementations = os.path.join(export_dir, 'implementations')
-	for impl in impls:
-		print "Exporting implementation", impl
+	for digest, impl in impls.iteritems():
+		print "Exporting implementation %s (%s %s)" % (impl, impl.feed.get_name(), impl.get_version())
 		# Store implementation
 		src = get_implementation_path(impl)
-		dst = os.path.join(implementations, impl)
+		dst = os.path.join(implementations, digest)
 		shutil.copytree(src, dst, symlinks = True)
-		manifest.verify(dst, impl)
+
+		# Regenerate the manifest, because it might be for a different algorithm
+		os.chmod(dst, 0755)
+		os.unlink(os.path.join(dst, '.manifest'))
+		alg_name, required_value = digest.split('=', 1)
+		alg = manifest.algorithms[alg_name]
+		actual = manifest.add_manifest_file(dst, alg).hexdigest()
+		assert actual == required_value, "Expected digest '%s', but found '%s'" % (required_value, actual)
+
 		for root, dirs, files in os.walk(dst):
 			os.chmod(root, 0755)
 		os.unlink(os.path.join(dst, '.manifest'))
