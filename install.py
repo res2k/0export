@@ -129,7 +129,7 @@ class Installer:
 
 			h = handler.Handler()
 			toplevel_uris = [uri.strip() for uri in file(os.path.join(mydir, 'toplevel_uris'))]
-			ZEROINSTALL_URI = "http://0install.net/2007/interfaces/ZeroInstall.xml"
+			ZEROINSTALL_URI = "@ZEROINSTALL_URI@"
 			for uri in [ZEROINSTALL_URI] + toplevel_uris:
 				# This is so the solver treats versions in the setup archive as 'cached',
 				# meaning that it will prefer using them to doing a download

@@ -29,6 +29,7 @@ extract_header = extract_header.replace('00000', "%05d" % len(extract_header))
 parser = OptionParser(usage="usage: %prog setup.sh URI...\n"
 			"Create setup.sh self-extracting installer for program(s) URI...")
 
+parser.add_option("-j", "--injector", help="use custom zeroinstall-injector url", default=ZEROINSTALL_URI)
 parser.add_option("-a", "--arch", help="add a target architecture (os-cpu)", metavar='CPU', action='append')
 parser.add_option("-v", "--verbose", help="more verbose output", action='count')
 parser.add_option("-V", "--version", help="display version information", action='store_true')
@@ -134,7 +135,7 @@ def choose_implementations(uris):
 
 	return (feeds_used, implementations_used, uri_impls)
 
-bootstrap_uris = [ZEROINSTALL_URI]
+bootstrap_uris = [options.injector]
 
 try:
 	(bootstrap_feeds_used, bootstrap_implementations_used, bootstrap_uri_impls) = choose_implementations(bootstrap_uris)
@@ -153,7 +154,7 @@ try:
 		# Add implementations...
 		utils.export_impls(bootstrap_tmp, bootstrap_implementations_used)
 
-		os.symlink(os.path.join('implementations', bootstrap_uri_impls[ZEROINSTALL_URI]), os.path.join(bootstrap_tmp, 'zeroinstall'))
+		os.symlink(os.path.join('implementations', bootstrap_uri_impls[options.injector]), os.path.join(bootstrap_tmp, 'zeroinstall'))
 
 		# Add keys...
 		keys_dir = os.path.join(bootstrap_tmp, 'keys')
@@ -163,8 +164,12 @@ try:
 
 		# Add installer...
 		mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
-		shutil.copyfile(os.path.join(mydir, 'install.py'),
-				os.path.join(bootstrap_tmp, 'install.py'))
+
+		install_code = file(os.path.join(mydir, 'install.py')).read()
+		install_code = install_code.replace('@ZEROINSTALL_URI@', options.injector)
+		install_file = file(os.path.join(bootstrap_tmp, 'install.py'), 'w')
+		install_file.write(install_code)
+		install_file.close()
 
 		# Record the toplevel interfaces (not those brought in only as dependencies)
 		# These are the programs the installer will offer to run
