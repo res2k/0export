@@ -38,7 +38,10 @@ class NoLocalVersions:
 		if isinstance(impl, model.ZeroInstallImplementation):
 			i = impl.id
 			return not (i.startswith('/') or i.startswith('.'))
-		# Should package impls be OK?
+		# Accept package implementations to not deny ones that depend on it.
+		# Package implementations will be excluded from produced bundle later.
+		if impl.id.startswith('package:'):
+			return True
 		return False
 
 no_local = NoLocalVersions()

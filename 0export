@@ -60,7 +60,7 @@ if len(args) < 2:
 
 from zeroinstall import support
 from zeroinstall.zerostore import BadDigest
-from zeroinstall.injector import policy, handler, model, arch
+from zeroinstall.injector import policy, handler, model, arch, solver
 from zeroinstall import SafeException
 import utils
 
@@ -78,6 +78,18 @@ if options.arch:
 	archs = [get_arch(a) for a in options.arch]
 else:
 	archs = [arch.get_host_architecture()]
+
+class ExportSolver(solver.SATSolver):
+	def __init__(self, network_use, iface_cache, stores, extra_restrictions = None):
+		solver.SATSolver.__init__(self, network_use, iface_cache, stores, extra_restrictions)
+
+	def compare(self, interface, b, a, arch):
+		# Prefer non-native packages all time to bundle them at first
+		r = cmp(b.id.startswith('package:'), a.id.startswith('package:'))
+		if r: return r
+		return solver.SATSolver.compare(self, interface, b, a, arch)
+
+solver.DefaultSolver = ExportSolver
 
 def choose_implementations(uris):
 	h = handler.Handler()
@@ -106,6 +118,9 @@ def choose_implementations(uris):
 			versions += 1
 
 			for iface, impl in p.solver.selections.items():
+				if impl.id.startswith('package:'):
+					debug('Skip package implementation %r', impl)
+					continue
 				print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch)
 				# TODO: assumes the ID is a digest (globally unique)
 				# With 0launch >= 0.45, that might not be true.
