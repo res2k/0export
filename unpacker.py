@@ -55,14 +55,17 @@ try:
 		label.set_alignment(0, 0.5)
 		actions_vbox.pack_start(label, False, True, 0)
 
-		add_to_menu_option = gtk.CheckButton('Add to menu')
 		if subprocess.call('which xdg-desktop-menu',
 				shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT):
-			print 'No xdg-desktop-menu command. To add menu items, install xdg-utils first.'
-			add_to_menu_option.set_active(False)
-		else:
-			add_to_menu_option.set_active(True)
+			add_to_menu_option = gtk.CheckButton('(no xdg-desktop-menu command;\n'
+				'to add menu items, install xdg-utils first)')
 			actions_vbox.pack_start(add_to_menu_option, False, True, 0)
+			add_to_menu_option.set_active(False)
+			add_to_menu_option.set_sensitive(False)
+		else:
+			add_to_menu_option = gtk.CheckButton('Add to menu')
+			actions_vbox.pack_start(add_to_menu_option, False, True, 0)
+			add_to_menu_option.set_active(True)
 
 		run_option = gtk.CheckButton('Run program')
 		run_option.set_active(True)
