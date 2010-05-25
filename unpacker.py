@@ -53,12 +53,19 @@ try:
 		actions_vbox = gtk.VBox(False, 4)
 		label = gtk.Label('Actions:')
 		label.set_alignment(0, 0.5)
+		actions_vbox.pack_start(label, False, True, 0)
+
 		add_to_menu_option = gtk.CheckButton('Add to menu')
-		add_to_menu_option.set_active(True)
+		if subprocess.call('which xdg-desktop-menu',
+				shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT):
+			print 'No xdg-desktop-menu command. To add menu items, install xdg-utils first.'
+			add_to_menu_option.set_active(False)
+		else:
+			add_to_menu_option.set_active(True)
+			actions_vbox.pack_start(add_to_menu_option, False, True, 0)
+
 		run_option = gtk.CheckButton('Run program')
 		run_option.set_active(True)
-		actions_vbox.pack_start(label, False, True, 0)
-		actions_vbox.pack_start(add_to_menu_option, False, True, 0)
 		actions_vbox.pack_start(run_option, False, True, 0)
 
 		def update_sensitive(option):
