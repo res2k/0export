@@ -24,12 +24,12 @@ exec python - "$0" "$archive_offset" << EOF
 EOF
 exit 1
 """
-extract_header = extract_header.replace('00000', "%05d" % len(extract_header))
 
 parser = OptionParser(usage="usage: %prog setup.sh URI...\n"
 			"Create setup.sh self-extracting installer for program(s) URI...")
 
 parser.add_option("-j", "--injector", help="use custom zeroinstall-injector url", default=ZEROINSTALL_URI)
+parser.add_option("-n", "--net-install", help="lightweight installer mode; bundle only injector, passed interface will be downloaded at run time", action='store_true')
 parser.add_option("-a", "--arch", help="add a target architecture (os-cpu)", metavar='CPU', action='append')
 parser.add_option("-v", "--verbose", help="more verbose output", action='count')
 parser.add_option("-V", "--version", help="display version information", action='store_true')
@@ -91,7 +91,7 @@ class ExportSolver(solver.SATSolver):
 
 solver.DefaultSolver = ExportSolver
 
-def choose_implementations(uris):
+def choose_implementations(uris, only_feeds):
 	h = handler.Handler()
 
 	feeds_used = set()		# URI
@@ -117,24 +117,25 @@ def choose_implementations(uris):
 				continue
 			versions += 1
 
-			for iface, impl in p.solver.selections.items():
-				if impl.id.startswith('package:'):
-					debug('Skip package implementation %r', impl)
-					continue
-				print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch)
-				# TODO: assumes the ID is a digest (globally unique)
-				# With 0launch >= 0.45, that might not be true.
-				implementations_used[impl.id] = impl
 			feeds_used = feeds_used | p.solver.feeds_used
-
-			downloads = p.download_uncached_implementations()
-			if downloads:
-				print "Downloading implementations..."
-				h.wait_for_blocker(downloads)
-
 			iface_cache = p.solver.iface_cache
 
-			uri_impls[uri] = p.solver.selections[iface_cache.get_interface(uri)].id
+			if not only_feeds:
+				for iface, impl in p.solver.selections.items():
+					if impl.id.startswith('package:'):
+						debug('Skip package implementation %r', impl)
+						continue
+					print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch)
+					# TODO: assumes the ID is a digest (globally unique)
+					# With 0launch >= 0.45, that might not be true.
+					implementations_used[impl.id] = impl
+
+				downloads = p.download_uncached_implementations()
+				if downloads:
+					print "Downloading implementations..."
+					h.wait_for_blocker(downloads)
+
+				uri_impls[uri] = p.solver.selections[iface_cache.get_interface(uri)].id
 
 			for feed in p.solver.feeds_used:
 				if feed.startswith('/'): continue
@@ -153,8 +154,8 @@ def choose_implementations(uris):
 bootstrap_uris = [options.injector]
 
 try:
-	(bootstrap_feeds_used, bootstrap_implementations_used, bootstrap_uri_impls) = choose_implementations(bootstrap_uris)
-	(feeds_used, implementations_used, uri_impls) = choose_implementations(uris)
+	(bootstrap_feeds_used, bootstrap_implementations_used, bootstrap_uri_impls) = choose_implementations(bootstrap_uris, False)
+	(feeds_used, implementations_used, uri_impls) = choose_implementations(uris, options.net_install)
 
 	keys_used = set()
 
@@ -213,6 +214,8 @@ try:
 				support.ro_rmtree(impltmp)
 			impl_files.append(implpath)
 
+		extract_header = extract_header.replace('@INSTALLER_MODE@', str(options.net_install))
+		extract_header = extract_header.replace('00000', "%05d" % len(extract_header))
 		setup_stream = file(setup_file, 'wb')
 		setup_stream.write(extract_header)
 		setup_tar = tarfile.open(setup_file, 'w|', setup_stream)

@@ -261,7 +261,7 @@ def add_to_menu(uris):
 	box.destroy()
 	gtk.gdk.flush()
 
-def run(uri):
+def run(uri, args):
 	print "Running program..."
 	launch = os.path.join(copied_0launch_in_cache, '0launch')
-	os.execv(launch, [launch, '--offline', uri])
+	os.execv(launch, [launch] + args + [uri])

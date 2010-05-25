@@ -1,5 +1,7 @@
 import tempfile, sys, shutil, os, subprocess, gobject, tarfile
 
+INSTALLER_MODE = @INSTALLER_MODE@
+
 def get_busy_pointer():
 	# See http://mail.gnome.org/archives/gtk-list/2007-May/msg00100.html
 	bit_data = "\
@@ -176,4 +178,7 @@ finally:
 
 if w is None or run_option.get_active():
 	print "Running..."
-	install.run(toplevel_uris[0])
+	install.run(toplevel_uris[0], not INSTALLER_MODE and ['--offline'] or [])
+elif INSTALLER_MODE:
+	print "Downloading..."
+	install.run(toplevel_uris[0], ['--download-only'])
