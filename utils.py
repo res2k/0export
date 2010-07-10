@@ -58,6 +58,9 @@ def export_feeds(export_dir, feeds, keys_used):
 		if feed.startswith('/'):
 			info("Skipping local feed %s", feed)
 			continue
+		if feed.startswith('distribution:'):
+			info("Skipping distribution feed %s", feed)
+			continue
 		print "Exporting feed", feed
 		# Store feed
 		cached = basedir.load_first_cache(namespaces.config_site,
