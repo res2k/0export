@@ -27,10 +27,6 @@ from zeroinstall.gtkui import xdgutils
 # During the install we copy this to the local cache
 copied_0launch_in_cache = None
 
-import logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
 if not os.path.isdir(feeds_dir):
 	print >>sys.stderr, "Directory %s not found." % feeds_dir
 	print >>sys.stderr, "This script should be run from an unpacked setup.sh archive."
@@ -261,7 +257,7 @@ def add_to_menu(uris):
 	box.destroy()
 	gtk.gdk.flush()
 
-def run(uri, args):
+def run(uri, args, prog_args):
 	print "Running program..."
 	launch = os.path.join(copied_0launch_in_cache, '0launch')
-	os.execv(launch, [launch] + args + [uri])
+	os.execv(launch, [launch] + args + [uri] + prog_args)

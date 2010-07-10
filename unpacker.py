@@ -1,4 +1,4 @@
-import tempfile, sys, shutil, os, subprocess, gobject, tarfile
+import tempfile, sys, shutil, os, subprocess, gobject, tarfile, optparse
 
 INSTALLER_MODE = @INSTALLER_MODE@
 
@@ -16,6 +16,7 @@ def get_busy_pointer():
 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 \x00\x00\x00\x00\x00\x00\x00\x00"
+	import gtk
 	try:
 		pix = gtk.gdk.bitmap_create_from_data(None, bit_data, 32, 32)
 		color = gtk.gdk.Color()
@@ -24,17 +25,8 @@ def get_busy_pointer():
 		#old bug http://bugzilla.gnome.org/show_bug.cgi?id=103616
 		return gtk.gdk.Cursor(gtk.gdk.WATCH)
 
-tmp = tempfile.mkdtemp(prefix = '0export-')
-try:
-	w = None
-	progress_bar = None
-	installer = None
-	print "Extracting bootstrap data..."
-	try:
-		import pygtk; pygtk.require('2.0')
-		import gtk
-		if gtk.gdk.get_display() is None:
-			raise Exception("Failed to open display")
+class GUI():
+	def __init__(self):
 		w = gtk.Dialog(title = "Zero Install")
 
 		w.set_resizable(False)
@@ -59,38 +51,38 @@ try:
 
 		if subprocess.call('which xdg-desktop-menu',
 				shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT):
-			add_to_menu_option = gtk.CheckButton('(no xdg-desktop-menu command;\n'
+			self.add_to_menu_option = gtk.CheckButton('(no xdg-desktop-menu command;\n'
 				'to add menu items, install xdg-utils first)')
-			actions_vbox.pack_start(add_to_menu_option, False, True, 0)
-			add_to_menu_option.set_active(False)
-			add_to_menu_option.set_sensitive(False)
+			actions_vbox.pack_start(self.add_to_menu_option, False, True, 0)
+			self.add_to_menu_option.set_active(False)
+			self.add_to_menu_option.set_sensitive(False)
 		else:
-			add_to_menu_option = gtk.CheckButton('Add to menu')
-			actions_vbox.pack_start(add_to_menu_option, False, True, 0)
-			add_to_menu_option.set_active(True)
+			self.add_to_menu_option = gtk.CheckButton('Add to menu')
+			actions_vbox.pack_start(self.add_to_menu_option, False, True, 0)
+			self.add_to_menu_option.set_active(True)
 
-		run_option = gtk.CheckButton('Run program')
-		run_option.set_active(True)
-		actions_vbox.pack_start(run_option, False, True, 0)
+		self.run_option = gtk.CheckButton('Run program')
+		self.run_option.set_active(True)
+		actions_vbox.pack_start(self.run_option, False, True, 0)
 
 		def update_sensitive(option):
 			w.set_response_sensitive(gtk.RESPONSE_OK,
-				add_to_menu_option.get_active() or run_option.get_active())
-		add_to_menu_option.connect('toggled', update_sensitive)
-		run_option.connect('toggled', update_sensitive)
+				self.add_to_menu_option.get_active() or self.run_option.get_active())
+		self.add_to_menu_option.connect('toggled', update_sensitive)
+		self.run_option.connect('toggled', update_sensitive)
 
-		notebook = gtk.Notebook()
-		notebook.set_show_tabs(False)
-		notebook.set_show_border(False)
-		notebook.append_page(message_vbox, None)
-		notebook.append_page(actions_vbox, None)
+		self.notebook = gtk.Notebook()
+		self.notebook.set_show_tabs(False)
+		self.notebook.set_show_border(False)
+		self.notebook.append_page(message_vbox, None)
+		self.notebook.append_page(actions_vbox, None)
 
 		hbox.pack_start(image, False, False, 0)
-		hbox.pack_start(notebook, True, True)
+		hbox.pack_start(self.notebook, True, True)
 		w.vbox.pack_start(hbox, False, False, 0)
 		cancel_button = w.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
 		cancel_button.unset_flags(gtk.CAN_DEFAULT)
-		ok_button = w.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
+		self.ok_button = w.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
 		w.set_response_sensitive(gtk.RESPONSE_OK, False)
 		w.set_position(gtk.WIN_POS_MOUSE)
 		w.set_title('Zero Install')
@@ -104,11 +96,65 @@ try:
 			if installer:
 				installer.abort()
 			sys.exit(1)
-		response_handler = w.connect('response', response)
-	except Exception, ex:
-		print "GTK not available; will use console install instead (%s)" % str(ex)
-	self_stream = file(sys.argv[1], 'rb')
+		self.response_handler = w.connect('response', response)
+		self.w = w
+
+	def finish_install(self):
+		import gtk
+		self.notebook.next_page()
+		self.w.disconnect(self.response_handler)
+		self.w.window.set_cursor(None)
+		self.w.set_response_sensitive(gtk.RESPONSE_OK, True)
+		self.ok_button.grab_focus()
+		resp = self.w.run()
+
+		self.w.destroy()
+		gtk.gdk.flush()
+
+		if resp != gtk.RESPONSE_OK:
+			raise Exception("Cancelled at user's request")
+
+		if self.add_to_menu_option.get_active():
+			install.add_to_menu(toplevel_uris)
+
+tmp = tempfile.mkdtemp(prefix = '0export-')
+try:
+	w = None
+	progress_bar = None
+	installer = None
+	print "Extracting bootstrap data..."
+
+	setup_path = sys.argv[1]
 	archive_offset = int(sys.argv[2])
+	del sys.argv[1:3]
+
+	parser = optparse.OptionParser(usage="usage: %s\n"
+				"Run self-extracting installer" % setup_path)
+
+	parser.add_option("-v", "--verbose", help="more verbose output", action='count')
+
+	(options, args) = parser.parse_args()
+
+	if options.verbose:
+		import logging
+		logger = logging.getLogger()
+		if options.verbose == 1:
+			logger.setLevel(logging.INFO)
+		else:
+			logger.setLevel(logging.DEBUG)
+
+	if len(args) == 0 and 'DISPLAY' in os.environ:
+		import pygtk; pygtk.require('2.0')
+		import gtk
+		if gtk.gdk.get_display() is None:
+			print >>sys.stderr, "Failed to open display; using console mode"
+			w = None
+		else:
+			w = GUI()
+	else:
+		w = None
+
+	self_stream = file(setup_path, 'rb')
 	self_stream.seek(archive_offset)
 	old_umask = os.umask(077)
 	mainloop = gobject.MainLoop(gobject.main_context_default())
@@ -155,30 +201,17 @@ try:
 	self_stream.close()
 
 	if w:
-		notebook.next_page()
-		w.disconnect(response_handler)
-		w.window.set_cursor(None)
-		w.set_response_sensitive(gtk.RESPONSE_OK, True)
-		ok_button.grab_focus()
-		resp = w.run()
-
-		w.destroy()
-		gtk.gdk.flush()
-
-		if resp != gtk.RESPONSE_OK:
-			raise Exception("Cancelled at user's request")
-
-		if add_to_menu_option.get_active():
-			install.add_to_menu(toplevel_uris)
+		w.finish_install()
 finally:
 	print "Removing temporary files..."
 	for root, dirs, files in os.walk(os.path.join(tmp, 'zeroinstall')):
 		os.chmod(root, 0700)
 	shutil.rmtree(tmp)
 
-if w is None or run_option.get_active():
+if w is None or w.run_option.get_active():
 	print "Running..."
-	install.run(toplevel_uris[0], not INSTALLER_MODE and ['--offline'] or [])
+	install.run(toplevel_uris[0], not INSTALLER_MODE and ['--offline'] or [], args)
 elif INSTALLER_MODE:
 	print "Downloading..."
+	assert not args, "Download only mode, but arguments given: %s" % args
 	install.run(toplevel_uris[0], ['--download-only'])
