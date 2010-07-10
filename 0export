@@ -94,6 +94,7 @@ solver.DefaultSolver = ExportSolver
 def choose_implementations(uris, only_feeds):
 	h = handler.Handler()
 
+	interfaces_used = set()		# URI
 	feeds_used = set()		# URI
 	implementations_used = {}	# ID -> Implementation
 	uri_impls = {}			# Maps top-level URIs to implementations
@@ -137,17 +138,21 @@ def choose_implementations(uris, only_feeds):
 
 				uri_impls[uri] = p.solver.selections[iface_cache.get_interface(uri)].id
 
-			for feed in p.solver.feeds_used:
-				if feed.startswith('/'): continue
-				iface = iface_cache.get_interface(feed)
-				icon = iface_cache.get_icon_path(iface)
-				if icon is None:
-					download_icon = p.fetcher.download_icon(iface)
-					if download_icon:
-						print "Downloading icon..."
-						h.wait_for_blocker(download_icon)
+			for iface, impl in p.solver.selections.items():
+				interfaces_used.add(iface.uri)
+
 		if not versions:
 			raise SafeException("Failed to select a set of versions for %s" % uri)
+
+	for iface_uri in interfaces_used:
+		if iface_uri.startswith('/'): continue
+		iface = iface_cache.get_interface(iface_uri)
+		icon = iface_cache.get_icon_path(iface)
+		if icon is None:
+			download_icon = p.fetcher.download_icon(iface)
+			if download_icon:
+				print "Downloading icon..."
+				h.wait_for_blocker(download_icon)
 
 	return (feeds_used, implementations_used, uri_impls)
 
