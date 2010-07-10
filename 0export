@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2008, Thomas Leonard
+# Copyright (C) 2010, Thomas Leonard
 # See the README file for details, or visit http://0install.net.
 
 from optparse import OptionParser
@@ -38,7 +38,7 @@ parser.add_option("-V", "--version", help="display version information", action=
 
 if options.version:
 	print "0export (zero-install) " + version
-	print "Copyright (C) 2008 Thomas Leonard"
+	print "Copyright (C) 2010 Thomas Leonard"
 	print "This program comes with ABSOLUTELY NO WARRANTY,"
 	print "to the extent permitted by law."
 	print "You may redistribute copies of this program"

@@ -1,5 +1,5 @@
 # This script is part of 0export
-# Copyright (C) 2008, Thomas Leonard
+# Copyright (C) 2010, Thomas Leonard
 # See http://0install.net for details.
 
 # This file goes inside the generated setup.sh archive
