@@ -68,11 +68,11 @@ class Installer:
 
 		# Maybe GPG has never been run before. Let it initialse, or we'll get an error code
 		# from the first import... (ignore return value here)
-		subprocess.call([get_gpg(), '--check-trustdb'])
+		subprocess.call([get_gpg(), '--check-trustdb', '-q'])
 
 		key_dir = os.path.join(mydir, 'keys')
 		for key in os.listdir(key_dir):
-			check_call([get_gpg(), '--import', os.path.join(key_dir, key)])
+			check_call([get_gpg(), '--import', '-q', os.path.join(key_dir, key)])
 
 		# Step 2. Import feeds and trust their signing keys
 		for root, dirs, files in os.walk(os.path.join(mydir, 'feeds')):
