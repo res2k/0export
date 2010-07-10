@@ -126,7 +126,7 @@ def choose_implementations(uris, only_feeds):
 					if impl.id.startswith('package:'):
 						debug('Skip package implementation %r', impl)
 						continue
-					print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch)
+					print "  %-10s : %s (%s)" % (iface.get_name(), impl.get_version(), impl.arch or 'any arch')
 					# TODO: assumes the ID is a digest (globally unique)
 					# With 0launch >= 0.45, that might not be true.
 					implementations_used[impl.id] = impl
