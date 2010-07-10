@@ -94,9 +94,8 @@ class Installer:
 						print "Adding key %s to trusted list for %s" % (s.fingerprint, domain)
 						trust.trust_db.trust_key(s.fingerprint, domain)
 				oldest_sig = min([s.get_timestamp() for s in sigs])
-				iface = iface_cache.iface_cache.get_interface(uri)
 				try:
-					iface_cache.iface_cache.update_interface_from_network(iface, stream.read(), oldest_sig)
+					iface_cache.iface_cache.update_feed_from_network(uri, stream.read(), oldest_sig)
 				except iface_cache.ReplayAttack:
 					# OK, the user has a newer copy already
 					pass

@@ -32,7 +32,7 @@ still shared between users, and will get updates over the web where possible.</d
   <group main="0export">
     <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" version="0.1-post"/>
     <requires interface="http://0install.net/2007/interfaces/ZeroInstall.xml">
-      <version not-before="0.33"/>
+      <version not-before="0.49"/>
       <environment insert="" mode="replace" name="0EXPORT_ZEROINSTALL"/>
     </requires>
   </group>
