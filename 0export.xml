@@ -30,7 +30,7 @@ still shared between users, and will get updates over the web where possible.</d
   <needs-terminal/>
 
   <group main="0export" self-test="test.py">
-    <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" released="2010-07-10" version="0.2"/>
+    <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" version="0.2-post"/>
     <requires interface="http://0install.net/2007/interfaces/ZeroInstall.xml">
       <version not-before="0.49"/>
       <environment insert="" mode="replace" name="0EXPORT_ZEROINSTALL"/>
