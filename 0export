@@ -213,7 +213,7 @@ try:
 				utils.export_impls(impltmp, {impl : implementations_used[impl]})
 				implpath = os.path.join(tmp, impl + '.tar.bz2')
 				ts = tarfile.open(implpath, 'w|bz2')
-				ts.add(os.path.join(impltmp, 'implementations', impl), '.')
+				ts.add(str(os.path.join(impltmp, 'implementations', impl)), '.')
 				ts.close()
 			finally:
 				support.ro_rmtree(impltmp)
@@ -226,7 +226,7 @@ try:
 		setup_tar = tarfile.open(setup_file, 'w|', setup_stream)
 		setup_tar.add(bootstrap_path, os.path.basename(bootstrap_path))
 		for impl in impl_files:
-			setup_tar.add(impl, 'implementations/' + os.path.basename(impl))
+			setup_tar.add(impl, str('implementations/' + os.path.basename(impl)))
 		setup_tar.close()
 		setup_stream.close()
 		os.chmod(setup_file, (os.stat(setup_file).st_mode & 0777) | 0111)
