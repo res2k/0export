@@ -29,7 +29,7 @@ still shared between users, and will get updates over the web where possible.</d
   <category>Development</category>
   <needs-terminal/>
 
-  <group main="0export">
+  <group main="0export" self-test='test.py'>
     <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" version="0.1-post"/>
     <requires interface="http://0install.net/2007/interfaces/ZeroInstall.xml">
       <version not-before="0.49"/>
