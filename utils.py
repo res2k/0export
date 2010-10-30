@@ -34,6 +34,9 @@ def export_key(fingerprint, key_dir):
 	info("Exported key %s", fingerprint)
 
 class NoLocalVersions:
+	def __init__(self, allow_package):
+		self.allow_package = allow_package
+
 	def meets_restriction(self, impl):
 		if isinstance(impl, model.ZeroInstallImplementation):
 			i = impl.id
@@ -41,15 +44,22 @@ class NoLocalVersions:
 		# Accept package implementations to not deny ones that depend on it.
 		# Package implementations will be excluded from produced bundle later.
 		if impl.id.startswith('package:'):
-			return True
+			return self.allow_package
 		return False
 
-no_local = NoLocalVersions()
+no_local = NoLocalVersions(True)
+no_local_or_package = NoLocalVersions(False)
 
 class NoLocalRestrictions(dict):
+	def __init__(self, uris):
+		self.uris = uris
+
 	# This restriction applies to all interfaces, so ignore key
 	def get(self, key, default):
-		return [no_local]
+		if key.uri in self.uris:
+			return [no_local_or_package]
+		else:
+			return [no_local]
 
 def export_feeds(export_dir, feeds, keys_used):
 	"""Copy each feed (and icon) in feeds from the cache to export_dir.

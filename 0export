@@ -107,7 +107,7 @@ def choose_implementations(uris, only_feeds):
 			p.target_arch = target_arch
 
 			# Don't let us choose local devel versions
-			p.solver.extra_restrictions = utils.NoLocalRestrictions()
+			p.solver.extra_restrictions = utils.NoLocalRestrictions(uris)
 
 			solved = p.solve_with_downloads()
 			h.wait_for_blocker(solved)

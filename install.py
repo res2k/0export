@@ -165,7 +165,10 @@ class Installer:
 				if uri == ZEROINSTALL_URI:
 					global copied_0launch_in_cache
 					iface = iface_cache.iface_cache.get_interface(uri)
-					copied_0launch_in_cache = p.get_implementation_path(p.get_implementation(iface))
+					impl = p.get_implementation(iface)
+					if not impl.id.startswith('package:'):
+						copied_0launch_in_cache = p.get_implementation_path(impl)
+					# (else we selected the distribution version of Zero Install)
 		finally:
 			shutil.rmtree(tmp)
 
@@ -258,5 +261,8 @@ def add_to_menu(uris):
 
 def run(uri, args, prog_args):
 	print "Running program..."
-	launch = os.path.join(copied_0launch_in_cache, '0launch')
+	if copied_0launch_in_cache:
+		launch = os.path.join(copied_0launch_in_cache, '0launch')
+	else:
+		launch = find_in_path('0launch')
 	os.execv(launch, [launch] + args + [uri] + prog_args)
