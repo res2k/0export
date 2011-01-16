@@ -80,9 +80,6 @@ else:
 	archs = [arch.get_host_architecture()]
 
 class ExportSolver(solver.SATSolver):
-	def __init__(self, network_use, iface_cache, stores, extra_restrictions = None):
-		solver.SATSolver.__init__(self, network_use, iface_cache, stores, extra_restrictions)
-
 	def compare(self, interface, b, a, arch):
 		# Prefer non-native packages all time to bundle them at first
 		r = cmp(b.id.startswith('package:'), a.id.startswith('package:'))
