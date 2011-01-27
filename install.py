@@ -24,6 +24,9 @@ from zeroinstall.support import basedir, find_in_path
 from zeroinstall import SafeException, zerostore
 from zeroinstall.gtkui import xdgutils
 
+h = handler.Handler()
+config = policy.load_config(handler = h)
+
 # During the install we copy this to the local cache
 copied_0launch_in_cache = None
 
@@ -95,7 +98,7 @@ class Installer:
 						trust.trust_db.trust_key(s.fingerprint, domain)
 				oldest_sig = min([s.get_timestamp() for s in sigs])
 				try:
-					iface_cache.iface_cache.update_feed_from_network(uri, stream.read(), oldest_sig)
+					config.iface_cache.update_feed_from_network(uri, stream.read(), oldest_sig)
 				except iface_cache.ReplayAttack:
 					# OK, the user has a newer copy already
 					pass
@@ -110,15 +113,13 @@ class Installer:
 						shutil.copyfile(icon_path, icon_file)
 
 		# Step 3. Solve to find out which implementations we actually need
-
 		archive_stream.seek(archive_offset)
 
 		extract_impls = {}	# Impls we need but which are compressed (ID -> Impl)
 		tmp = tempfile.mkdtemp(prefix = '0export-')
 		try:
 			# Create a "fake store" with the implementation in the archive
-			archive = tarfile.open(name=archive_stream.name, mode='r|',
-                    fileobj=archive_stream)
+			archive = tarfile.open(name=archive_stream.name, mode='r|', fileobj=archive_stream)
 			fake_store = FakeStore()
 			for tarmember in archive:
 				if tarmember.name.startswith('implementations'):
@@ -126,9 +127,8 @@ class Installer:
 					fake_store.impls.add(impl)
 
 			bootstrap_store = zerostore.Store(os.path.join(mydir, 'implementations'))
-			stores = iface_cache.iface_cache.stores
+			stores = config.stores
 
-			h = handler.Handler()
 			toplevel_uris = [uri.strip() for uri in file(os.path.join(mydir, 'toplevel_uris'))]
 			ZEROINSTALL_URI = "@ZEROINSTALL_URI@"
 			for uri in [ZEROINSTALL_URI] + toplevel_uris:
@@ -138,17 +138,17 @@ class Installer:
 				stores.stores.append(fake_store)
 
 				# Shouldn't need to download anything, but we might not have all feeds
-				p = policy.Policy(uri, h)
+				p = policy.Policy(uri, config = config)
 				p.network_use = model.network_minimal
 				download_feeds = p.solve_with_downloads()
 				h.wait_for_blocker(download_feeds)
-				assert p.ready
+				assert p.ready, p.solver.get_failure_reason()
 
 				# Add anything chosen from the setup store to the main store
 				stores.stores.remove(fake_store)
 				stores.stores.remove(bootstrap_store)
 				for iface, impl in p.get_uncached_implementations():
-					print "Need to import", impl
+					print >>sys.stderr, "Need to import", impl
 					if impl.id in fake_store.impls:
 						# Delay extraction
 						extract_impls[impl.id] = impl
@@ -158,13 +158,13 @@ class Installer:
 						if os.path.isdir(impl_src):
 							stores.add_dir_to_cache(impl.id, impl_src)
 						else:
-							print >>sys.stderr, "Required impl %s not present" % impl
+							print >>sys.stderr, "Required impl %s (for %s) not present" % (impl, iface)
 
 				# Remember where we copied 0launch to, because we'll need it after
 				# the temporary directory is deleted.
 				if uri == ZEROINSTALL_URI:
 					global copied_0launch_in_cache
-					iface = iface_cache.iface_cache.get_interface(uri)
+					iface = config.iface_cache.get_interface(uri)
 					impl = p.get_implementation(iface)
 					if not impl.id.startswith('package:'):
 						copied_0launch_in_cache = p.get_implementation_path(impl)
@@ -227,8 +227,8 @@ class Installer:
 
 def add_to_menu(uris):
 	for uri in uris:
-		iface = iface_cache.iface_cache.get_interface(uri)
-		icon_path = iface_cache.iface_cache.get_icon_path(iface)
+		iface = config.iface_cache.get_interface(uri)
+		icon_path = config.iface_cache.get_icon_path(iface)
 
 		feed_category = ''
 		for meta in iface.get_metadata(namespaces.XMLNS_IFACE, 'category'):
