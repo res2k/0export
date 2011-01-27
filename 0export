@@ -12,7 +12,7 @@ zeroinstall_dir = os.environ.get('0EXPORT_ZEROINSTALL', None)
 if zeroinstall_dir:
 	sys.path.insert(1, zeroinstall_dir)
 
-version = '0.2'
+version = '0.3'
 
 extract_header = """#!/bin/sh
 # 0export %s
