@@ -116,7 +116,7 @@ def choose_implementations(uris, only_feeds):
 			versions += 1
 
 			feeds_used = feeds_used | p.solver.feeds_used
-			iface_cache = p.solver.iface_cache
+			iface_cache = p.config.iface_cache
 
 			if not only_feeds:
 				for iface, impl in p.solver.selections.items():
