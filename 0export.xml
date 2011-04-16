@@ -29,7 +29,17 @@ still shared between users, and will get updates over the web where possible.</d
   <category>Development</category>
   <needs-terminal/>
 
-  <group main="0export" self-test="test.py">
+  <group main="0export">
+    <command name='run' path='0export'>
+      <runner interface='http://repo.roscidus.com/python/python'>
+	<version before='3'/>
+      </runner>
+    </command>
+    <command name='test' path='test.py'>
+      <runner interface='http://repo.roscidus.com/python/python'>
+	<version before='3'/>
+      </runner>
+    </command>
     <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" version="0.3-post"/>
     <requires interface="http://0install.net/2007/interfaces/ZeroInstall.xml">
       <version not-before="0.52"/>
