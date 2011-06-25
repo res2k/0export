@@ -3,7 +3,9 @@ import sys, tempfile, os, shutil, tempfile, subprocess
 from StringIO import StringIO
 import unittest
 
-sys.path.insert(0, os.environ['0EXPORT_ZEROINSTALL'])
+zeroinstall_dir = os.environ.get('0EXPORT_ZEROINSTALL', None)
+if zeroinstall_dir:
+	sys.path.insert(1, zeroinstall_dir)
 
 from zeroinstall.support import ro_rmtree
 
