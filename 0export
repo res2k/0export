@@ -3,7 +3,7 @@
 # See the README file for details, or visit http://0install.net.
 
 from optparse import OptionParser
-import os, sys, tempfile, shutil, tarfile
+import os, sys, tempfile, tarfile
 from logging import warn, info, debug
 
 ZEROINSTALL_URI = "http://0install.net/2007/interfaces/ZeroInstall.xml"
@@ -59,8 +59,12 @@ if len(args) < 2:
 	sys.exit(1)
 
 from zeroinstall import support
+from zeroinstall.support import tasks
 from zeroinstall.zerostore import BadDigest
-from zeroinstall.injector import policy, handler, model, arch, solver
+from zeroinstall.injector import model, arch, solver
+from zeroinstall.injector.config import load_config
+from zeroinstall.injector.requirements import Requirements
+from zeroinstall.injector.driver import Driver
 from zeroinstall import SafeException
 import utils
 
@@ -88,9 +92,9 @@ class ExportSolver(solver.SATSolver):
 
 solver.DefaultSolver = ExportSolver
 
-def choose_implementations(uris, only_feeds):
-	h = handler.Handler()
+config = load_config()
 
+def choose_implementations(uris, only_feeds):
 	interfaces_used = set()		# URI
 	feeds_used = set()		# URI
 	implementations_used = {}	# ID -> Implementation
@@ -100,26 +104,27 @@ def choose_implementations(uris, only_feeds):
 		print "Choosing versions for %s..." % uri
 		versions = 0
 		for target_arch in archs:
-			p = policy.Policy(uri, h)
-			p.target_arch = target_arch
+			requirements = Requirements(uri)
+			driver = Driver(config, requirements)
+			driver.target_arch = target_arch
 
 			# Don't let us choose local devel versions
-			p.solver.extra_restrictions = utils.NoLocalRestrictions(uris)
+			driver.solver.extra_restrictions = utils.NoLocalRestrictions(uris)
 
-			solved = p.solve_with_downloads()
-			h.wait_for_blocker(solved)
+			solved = driver.solve_with_downloads()
+			tasks.wait_for_blocker(solved)
 
-			if not p.ready:
+			if not driver.solver.ready:
 				if len(archs) > 1:
 					warn("Failed to select any version for %s for architecture %s" % (uri, target_arch))
 				continue
 			versions += 1
 
-			feeds_used = feeds_used | p.solver.feeds_used
-			iface_cache = p.config.iface_cache
+			feeds_used = feeds_used | driver.solver.feeds_used
+			iface_cache = config.iface_cache
 
 			if not only_feeds:
-				for iface, impl in p.solver.selections.items():
+				for iface, impl in driver.solver.selections.items():
 					if impl.id.startswith('package:'):
 						debug('Skip package implementation %r', impl)
 						continue
@@ -127,14 +132,14 @@ def choose_implementations(uris, only_feeds):
 					assert impl.digests, "Implementation %s has no digests!" % impl
 					implementations_used[impl.digests[0]] = impl
 
-				downloads = p.download_uncached_implementations()
+				downloads = driver.download_uncached_implementations()
 				if downloads:
 					print "Downloading implementations..."
-					h.wait_for_blocker(downloads)
+					tasks.wait_for_blocker(downloads)
 
-				uri_impls[uri] = p.solver.selections[iface_cache.get_interface(uri)].id
+				uri_impls[uri] = driver.solver.selections[iface_cache.get_interface(uri)].id
 
-			for iface, impl in p.solver.selections.items():
+			for iface, impl in driver.solver.selections.items():
 				interfaces_used.add(iface.uri)
 
 		if not versions:
@@ -145,10 +150,10 @@ def choose_implementations(uris, only_feeds):
 		iface = iface_cache.get_interface(iface_uri)
 		icon = iface_cache.get_icon_path(iface)
 		if icon is None:
-			download_icon = p.fetcher.download_icon(iface)
+			download_icon = config.fetcher.download_icon(iface)
 			if download_icon:
 				print "Downloading icon..."
-				h.wait_for_blocker(download_icon)
+				tasks.wait_for_blocker(download_icon)
 
 	return (feeds_used, implementations_used, uri_impls)
 
