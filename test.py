@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-import sys, tempfile, os, shutil, tempfile, subprocess
-from StringIO import StringIO
+import sys, tempfile, os, subprocess
 import unittest
 
 zeroinstall_dir = os.environ.get('0EXPORT_ZEROINSTALL', None)
