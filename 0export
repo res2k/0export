@@ -84,11 +84,9 @@ else:
 	archs = [arch.get_host_architecture()]
 
 class ExportSolver(solver.SATSolver):
-	def compare(self, interface, b, a, arch):
-		# Prefer non-native packages all time to bundle them at first
-		r = cmp(b.id.startswith('package:'), a.id.startswith('package:'))
-		if r: return r
-		return solver.SATSolver.compare(self, interface, b, a, arch)
+	def get_rating(self, interface, impl, arch):
+		# Always prefer non-native packages, as only these can be included in a bundle
+		return [not impl.id.startswith('package:')] + solver.SATSolver.get_rating(self, interface, impl, arch)
 
 solver.DefaultSolver = ExportSolver
 
