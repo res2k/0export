@@ -30,17 +30,17 @@ still shared between users, and will get updates over the web where possible.</d
   <needs-terminal/>
 
   <group main="0export">
-    <command name='run' path='0export'>
-      <runner interface='http://repo.roscidus.com/python/python'>
-	<version before='3'/>
+    <command name="run" path="0export">
+      <runner interface="http://repo.roscidus.com/python/python">
+	<version before="3"/>
       </runner>
     </command>
-    <command name='test' path='test.py'>
-      <runner interface='http://repo.roscidus.com/python/python'>
-	<version before='3'/>
+    <command name="test" path="test.py">
+      <runner interface="http://repo.roscidus.com/python/python">
+	<version before="3"/>
       </runner>
     </command>
-    <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" version="0.3-post"/>
+    <implementation doc-dir="doc" id="." license="OSI Approved :: GNU General Public License v3" released="2012-06-05" version="0.4"/>
     <requires interface="http://0install.net/2007/interfaces/ZeroInstall.xml">
       <version not-before="1.8"/>
       <environment insert="" mode="replace" name="0EXPORT_ZEROINSTALL"/>
