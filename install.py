@@ -19,13 +19,13 @@ else:
 	pypath = ''
 os.environ['PYTHONPATH'] = zidir + pypath
 
-from zeroinstall.injector import gpg, trust, qdom, iface_cache, policy, handler, model, namespaces
+from zeroinstall.injector import gpg, trust, qdom, iface_cache, driver, handler, model, namespaces, config, requirements
 from zeroinstall.support import basedir, find_in_path
 from zeroinstall import SafeException, zerostore
 from zeroinstall.gtkui import xdgutils
 
 h = handler.Handler()
-config = policy.load_config(handler = h)
+config = config.load_config(handler = h)
 
 # During the install we copy this to the local cache
 copied_0launch_in_cache = None
@@ -138,16 +138,17 @@ class Installer:
 				stores.stores.append(fake_store)
 
 				# Shouldn't need to download anything, but we might not have all feeds
-				p = policy.Policy(uri, config = config)
-				p.network_use = model.network_minimal
-				download_feeds = p.solve_with_downloads()
+				r = requirements.Requirements(uri)
+				d = driver.Driver(config = config, requirements = r)
+				config.network_use = model.network_minimal
+				download_feeds = d.solve_with_downloads()
 				h.wait_for_blocker(download_feeds)
-				assert p.ready, p.solver.get_failure_reason()
+				assert d.solver.ready, d.solver.get_failure_reason()
 
 				# Add anything chosen from the setup store to the main store
 				stores.stores.remove(fake_store)
 				stores.stores.remove(bootstrap_store)
-				for iface, impl in p.get_uncached_implementations():
+				for iface, impl in d.get_uncached_implementations():
 					print >>sys.stderr, "Need to import", impl
 					if impl.id in fake_store.impls:
 						# Delay extraction
@@ -164,10 +165,9 @@ class Installer:
 				# the temporary directory is deleted.
 				if uri == ZEROINSTALL_URI:
 					global copied_0launch_in_cache
-					iface = config.iface_cache.get_interface(uri)
-					impl = p.get_implementation(iface)
+					impl = d.solver.selections.selections[uri]
 					if not impl.id.startswith('package:'):
-						copied_0launch_in_cache = p.get_implementation_path(impl)
+						copied_0launch_in_cache = impl.get_path(stores = config.stores)
 					# (else we selected the distribution version of Zero Install)
 		finally:
 			shutil.rmtree(tmp)
