@@ -33,7 +33,7 @@ def export_key(fingerprint, key_dir):
 	stream.close()
 	info("Exported key %s", fingerprint)
 
-class NoLocalVersions:
+class NoLocalVersions(model.Restriction):
 	def __init__(self, allow_package):
 		self.allow_package = allow_package
 
