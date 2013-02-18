@@ -39,7 +39,8 @@ class TestCompile(unittest.TestCase):
 
 		env = {
 			'HOME': self.tmpdir,
-			'http_proxy' : 'localhost:1111' 	# Detect accidental network access
+			'http_proxy' : 'localhost:1111', 	# Detect accidental network access
+			'PATH': '/bin:/usr/bin:' + os.path.dirname(sys.executable),
 		}
 
 		child = subprocess.Popen([setup_sh, '--help'], env = env, stdout = subprocess.PIPE)
