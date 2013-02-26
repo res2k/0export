@@ -19,7 +19,12 @@ extract_header = """#!/bin/sh
 archive_offset=00000
 archive_format=application/x-tar
 package_version=2
-exec python - "$0" "$archive_offset" "$@" << EOF
+if [ -x /usr/bin/python2 ]; then
+  PYTHON=/usr/bin/python2
+else
+  PYTHON=python
+fi
+exec "$PYTHON" - "$0" "$archive_offset" "$@" << EOF
 """ + file(os.path.join(os.path.dirname(__file__), 'unpacker.py')).read() + """
 EOF
 exit 1

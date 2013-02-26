@@ -34,8 +34,7 @@ class TestCompile(unittest.TestCase):
 
 	def testSimple(self):
 		setup_sh = os.path.join(self.tmpdir, 'setup.sh')
-		print export_bin
-		subprocess.check_call([export_bin, setup_sh, PUBLISH_URI])
+		subprocess.check_call([sys.executable, export_bin, setup_sh, PUBLISH_URI])
 
 		env = {
 			'HOME': self.tmpdir,
